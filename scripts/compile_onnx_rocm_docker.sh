@@ -6,6 +6,10 @@ set -e
 ORT_TAG="v1.19.2"
 ROCM_HOME="/opt/rocm"
 
+echo ">>> [0/5] Installing git (not present in base ROCm image)..."
+apt-get update -qq
+apt-get install -y --no-install-recommends git
+
 echo ">>> [1/5] Setting up Git Safe Directory..."
 git config --global --add safe.directory /code
 
