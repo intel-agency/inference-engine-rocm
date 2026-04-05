@@ -113,7 +113,8 @@ fi
     --parallel \
     --allow_running_as_root \
     --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100" \
-    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR"
+    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR" \
+    --cmake_extra_defines onnxruntime_USE_COMPOSABLE_KERNEL=OFF
 
 echo " SUCCESS! Copying artifacts..."
 mkdir -p /code/artifacts
