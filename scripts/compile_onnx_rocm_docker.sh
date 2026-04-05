@@ -38,27 +38,53 @@ export ROCM_PATH="$ROCM_HOME"
 export HIP_PATH="$ROCM_HOME"
 export PATH="$ROCM_HOME/bin:$PATH"
 
-# Detect ROCm version from installed packages (most reliable in this image)
-ROCM_VERSION_STRING=$(dpkg -l 2>/dev/null | awk '{print $3}' | grep -oP '^\d+\.\d+\.\d+' | sort -V | tail -1)
-if [ -z "$ROCM_VERSION_STRING" ]; then
-    ROCM_VERSION_STRING=$(cat /opt/rocm/.info/version 2>/dev/null | tr -d '[:space:]')
+# Detect ROCm version - try multiple sources in order of reliability
+ROCM_MAJOR="" ; ROCM_MINOR="" ; ROCM_PATCH=""
+
+# Source 1: existing header (may be in wrong format for ORT cmake - we fix it below)
+if [ -f "$ROCM_HOME/include/rocm_version.h" ]; then
+    ROCM_MAJOR=$(grep 'define ROCM_VERSION_MAJOR' "$ROCM_HOME/include/rocm_version.h" | awk '{print $NF}')
+    ROCM_MINOR=$(grep 'define ROCM_VERSION_MINOR' "$ROCM_HOME/include/rocm_version.h" | awk '{print $NF}')
+    ROCM_PATCH=$(grep 'define ROCM_VERSION_PATCH'  "$ROCM_HOME/include/rocm_version.h" | awk '{print $NF}')
 fi
-ROCM_MAJOR=$(echo "$ROCM_VERSION_STRING" | cut -d. -f1)
-ROCM_MINOR=$(echo "$ROCM_VERSION_STRING" | cut -d. -f2)
-ROCM_PATCH=$(echo "$ROCM_VERSION_STRING" | cut -d. -f3)
+
+# Source 2: HIP cmake config
+if [ -z "$ROCM_MAJOR" ]; then
+    _HIP_VER=$(grep 'PACKAGE_VERSION' /opt/rocm/lib/cmake/hip/hip-config-version.cmake 2>/dev/null | head -1 | grep -oP '[\d.]+' | head -1)
+    ROCM_MAJOR=$(echo "$_HIP_VER" | cut -d. -f1)
+    ROCM_MINOR=$(echo "$_HIP_VER" | cut -d. -f2)
+    ROCM_PATCH=$(echo "$_HIP_VER" | cut -d. -f3)
+fi
+
+# Source 3: dpkg ROCm-specific packages only
+if [ -z "$ROCM_MAJOR" ]; then
+    _PKG_VER=$(dpkg -l 2>/dev/null | grep -E '\brocm-dev\b|\brocm-core\b|\bhip-runtime-amd\b' | awk '{print $3}' | grep -oP '^\d+\.\d+\.\d+' | sort -V | tail -1)
+    ROCM_MAJOR=$(echo "$_PKG_VER" | cut -d. -f1)
+    ROCM_MINOR=$(echo "$_PKG_VER" | cut -d. -f2)
+    ROCM_PATCH=$(echo "$_PKG_VER" | cut -d. -f3)
+fi
+
+# Source 4: .info/version text file
+if [ -z "$ROCM_MAJOR" ]; then
+    _INFO_VER=$(cat /opt/rocm/.info/version 2>/dev/null | tr -d '[:space:]')
+    ROCM_MAJOR=$(echo "$_INFO_VER" | cut -d. -f1)
+    ROCM_MINOR=$(echo "$_INFO_VER" | cut -d. -f2)
+    ROCM_PATCH=$(echo "$_INFO_VER" | cut -d. -f3)
+fi
+
+ROCM_VERSION_STRING="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
 echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
 
-# ORT cmake reads rocm_version.h directly from ROCM_HOME/include/ - create it if missing
-if [ ! -f "$ROCM_HOME/include/rocm_version.h" ]; then
-    echo ">>> Creating missing $ROCM_HOME/include/rocm_version.h"
-    mkdir -p "$ROCM_HOME/include"
-    cat > "$ROCM_HOME/include/rocm_version.h" << ROCM_VER_EOF
+# ALWAYS rewrite rocm_version.h in the exact format ORT v1.19.2 cmake expects.
+# Newer ROCm images ship this header in a different format that breaks ORT cmake.
+echo ">>> Writing $ROCM_HOME/include/rocm_version.h (ORT-compatible format)"
+mkdir -p "$ROCM_HOME/include"
+cat > "$ROCM_HOME/include/rocm_version.h" << ROCM_VER_EOF
 #pragma once
 #define ROCM_VERSION_MAJOR ${ROCM_MAJOR}
 #define ROCM_VERSION_MINOR ${ROCM_MINOR}
 #define ROCM_VERSION_PATCH ${ROCM_PATCH}
 ROCM_VER_EOF
-fi
 
 echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
