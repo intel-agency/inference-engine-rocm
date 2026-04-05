@@ -29,8 +29,8 @@ echo ">>> [3/5] Installing Build Dependencies..."
 apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
 
-# Ensure cmake is up to date (Ubuntu 22.04 has 3.22, ORT might want newer)
-python3 -m pip install cmake --upgrade
+# Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
+python3 -m pip install 'cmake>=3.26,<4.0' --upgrade
 
 echo ">>> [4/5] Configuring Environment..."
 # Force CMake to find the ROCm compiler
