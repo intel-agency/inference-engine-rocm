@@ -30,8 +30,9 @@ apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
 # All ROCm libraries required by ORT v1.19.2 ROCm provider cmake:
 # hiprand, rocblas, MIOpen, hipfft, rccl, roctracer64, rocm_smi, hipblaslt
+# Also rocrand-dev for rocrand/rocrand.h header included by hiprand
 apt-get install -y \
-    hiprand rocblas miopen-hip hipfft rccl roctracer rocm-smi-lib hipblaslt \
+    hiprand rocrand rocblas miopen-hip hipfft rccl roctracer rocm-smi-lib hipblaslt \
     2>/dev/null || true
 
 # Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
