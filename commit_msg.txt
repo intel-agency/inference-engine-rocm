@@ -1,0 +1,12 @@
+feat: add Linux ROCm Docker build and CI pipeline
+
+This commit introduces a hybrid build system to support AMD GPU acceleration on Linux.
+It adds a Docker-based compilation script, a GitHub Actions workflow to run it,
+and updates the Core library to load the resulting native assets.
+
+Changes:
+- Added `scripts/compile_onnx_rocm_docker.sh`: Headless build script using AMD's Docker image.
+- Added `.github/workflows/build-rocm-linux.yml`: CI pipeline to build and pack native artifacts.
+- Added `ARCHITECTURE.md`: Documentation for the hybrid build strategy.
+- Updated `InferenceEngine.Core.csproj`: Includes native Linux assets in the NuGet package.
+- Updated `BaseInferenceEngine.cs`: Implements dynamic loading for the ROCm execution provider.
