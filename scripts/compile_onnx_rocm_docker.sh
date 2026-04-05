@@ -95,12 +95,16 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
 # --cmake_extra_defines: Optimizes for common RDNA2/3 architectures (gfx1030=RX6800/6900, gfx1031=RX6700, gfx1100=RX7900)
 
-# Pre-fetch Eigen via git to avoid GitLab tarball hash instability (GitLab regenerates
-# archives periodically, changing hashes and breaking ORT's FetchContent verify step).
+# Pre-fetch the exact Eigen commit ORT v1.19.2 pins to avoid GitLab tarball
+# hash instability. ORT deps.txt pins commit e7248b26 (3.4 branch, not tag).
 EIGEN_SRC_DIR="/code/external_build_work/eigen-src"
+EIGEN_COMMIT="e7248b26a1ed53fa030c5c459f7ea095dfd276ac"
 if [ ! -d "$EIGEN_SRC_DIR/.git" ]; then
-    echo ">>> Pre-fetching Eigen 3.4.0 via git (bypasses archive hash verification)..."
-    git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git "$EIGEN_SRC_DIR"
+    echo ">>> Pre-fetching Eigen commit $EIGEN_COMMIT..."
+    git clone https://gitlab.com/libeigen/eigen.git "$EIGEN_SRC_DIR"
+    git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
+elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
+    git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 fi
 ./build.sh \
     --config Release \
