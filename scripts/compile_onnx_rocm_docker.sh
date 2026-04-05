@@ -33,9 +33,11 @@ apt-get install -y build-essential cmake git python3 python3-dev python3-pip lib
 apt-get install -y \
     hiprand-dev rocrand-dev rocblas-dev miopen-hip-dev hipfft-dev \
     hipsparse-dev rccl-dev rocsparse-dev roctracer-dev rocm-smi-lib-dev hipblaslt-dev \
+    hipcub-dev rocprim-dev \
     2>/dev/null || \
 apt-get install -y \
     hiprand rocrand rocblas miopen-hip hipfft hipsparse rccl roctracer rocm-smi-lib hipblaslt \
+    hipcub rocprim \
     2>/dev/null || true
 
 # Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
