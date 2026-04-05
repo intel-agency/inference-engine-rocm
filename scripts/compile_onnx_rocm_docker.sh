@@ -28,11 +28,14 @@ echo ">>> [3/5] Installing Build Dependencies..."
 # The base image is barebones; we need cmake and python tools
 apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
-# All ROCm libraries required by ORT v1.19.2 ROCm provider cmake:
-# hiprand, rocblas, MIOpen, hipfft, rccl, roctracer64, rocm_smi, hipblaslt
-# Also rocrand-dev for rocrand/rocrand.h header included by hiprand
+# All ROCm libraries + dev headers required by ORT v1.19.2 ROCm provider.
+# Use -dev variants to ensure headers (not just runtime .so) are present.
 apt-get install -y \
-    hiprand rocrand rocblas miopen-hip hipfft rccl roctracer rocm-smi-lib hipblaslt \
+    hiprand-dev rocrand-dev rocblas-dev miopen-hip-dev hipfft-dev \
+    hipsparse-dev rccl-dev rocsparse-dev roctracer-dev rocm-smi-lib-dev hipblaslt-dev \
+    2>/dev/null || \
+apt-get install -y \
+    hiprand rocrand rocblas miopen-hip hipfft hipsparse rccl roctracer rocm-smi-lib hipblaslt \
     2>/dev/null || true
 
 # Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
