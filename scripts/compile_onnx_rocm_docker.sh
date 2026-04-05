@@ -49,6 +49,7 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
     --skip_tests \
     --skip_submodule_sync \
     --parallel \
+    --allow_running_as_root \
     --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100"
 
 echo " SUCCESS! Copying artifacts..."
