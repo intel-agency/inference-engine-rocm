@@ -38,12 +38,27 @@ export ROCM_PATH="$ROCM_HOME"
 export HIP_PATH="$ROCM_HOME"
 export PATH="$ROCM_HOME/bin:$PATH"
 
-# Detect ROCm version from installed headers (auto-detection fails in this image)
-ROCM_MAJOR=$(grep -oP '(?<=ROCM_VERSION_MAJOR\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
-ROCM_MINOR=$(grep -oP '(?<=ROCM_VERSION_MINOR\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
-ROCM_PATCH=$(grep -oP '(?<=ROCM_VERSION_PATCH\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
-ROCM_VERSION="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
-echo ">>> Detected ROCm version: $ROCM_VERSION"
+# Detect ROCm version from installed packages (most reliable in this image)
+ROCM_VERSION_STRING=$(dpkg -l 2>/dev/null | awk '{print $3}' | grep -oP '^\d+\.\d+\.\d+' | sort -V | tail -1)
+if [ -z "$ROCM_VERSION_STRING" ]; then
+    ROCM_VERSION_STRING=$(cat /opt/rocm/.info/version 2>/dev/null | tr -d '[:space:]')
+fi
+ROCM_MAJOR=$(echo "$ROCM_VERSION_STRING" | cut -d. -f1)
+ROCM_MINOR=$(echo "$ROCM_VERSION_STRING" | cut -d. -f2)
+ROCM_PATCH=$(echo "$ROCM_VERSION_STRING" | cut -d. -f3)
+echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
+
+# ORT cmake reads rocm_version.h directly from ROCM_HOME/include/ - create it if missing
+if [ ! -f "$ROCM_HOME/include/rocm_version.h" ]; then
+    echo ">>> Creating missing $ROCM_HOME/include/rocm_version.h"
+    mkdir -p "$ROCM_HOME/include"
+    cat > "$ROCM_HOME/include/rocm_version.h" << ROCM_VER_EOF
+#pragma once
+#define ROCM_VERSION_MAJOR ${ROCM_MAJOR}
+#define ROCM_VERSION_MINOR ${ROCM_MINOR}
+#define ROCM_VERSION_PATCH ${ROCM_PATCH}
+ROCM_VER_EOF
+fi
 
 echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
@@ -53,7 +68,7 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
     --build_wheel \
     --use_rocm \
     --rocm_home "$ROCM_HOME" \
-    --rocm_version "$ROCM_VERSION" \
+    --rocm_version "$ROCM_VERSION_STRING" \
     --skip_tests \
     --skip_submodule_sync \
     --parallel \
