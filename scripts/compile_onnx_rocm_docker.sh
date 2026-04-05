@@ -89,6 +89,14 @@ ROCM_VER_EOF
 echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
 # --cmake_extra_defines: Optimizes for common RDNA2/3 architectures (gfx1030=RX6800/6900, gfx1031=RX6700, gfx1100=RX7900)
+
+# Pre-fetch Eigen via git to avoid GitLab tarball hash instability (GitLab regenerates
+# archives periodically, changing hashes and breaking ORT's FetchContent verify step).
+EIGEN_SRC_DIR="/code/external_build_work/eigen-src"
+if [ ! -d "$EIGEN_SRC_DIR/.git" ]; then
+    echo ">>> Pre-fetching Eigen 3.4.0 via git (bypasses archive hash verification)..."
+    git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git "$EIGEN_SRC_DIR"
+fi
 ./build.sh \
     --config Release \
     --build_wheel \
@@ -99,7 +107,8 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
     --skip_submodule_sync \
     --parallel \
     --allow_running_as_root \
-    --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100"
+    --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100" \
+    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR"
 
 echo " SUCCESS! Copying artifacts..."
 mkdir -p /code/artifacts
