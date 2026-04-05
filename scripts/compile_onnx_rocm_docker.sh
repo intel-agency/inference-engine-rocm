@@ -28,9 +28,13 @@ echo ">>> [3/5] Installing Build Dependencies..."
 # The base image is barebones; we need cmake and python tools
 apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
-# ROCm math libraries required by ORT ROCm provider
-apt-get install -y hiprand rocblas miopen-hip 2>/dev/null || \
-    apt-get install -y hiprand-dev rocblas-dev 2>/dev/null || true
+# ROCm math/compute libraries required by ORT ROCm provider
+apt-get install -y \
+    hiprand rocblas hipfft hipsparse hipcub rocprim hipblaslt miopen-hip \
+    2>/dev/null || \
+apt-get install -y \
+    hiprand-dev rocblas-dev hipfft-dev hipsparse-dev hipcub-dev rocprim-dev \
+    2>/dev/null || true
 
 # Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
 python3 -m pip install 'cmake>=3.26,<4.0' --upgrade
