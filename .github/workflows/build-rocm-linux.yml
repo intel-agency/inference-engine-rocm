@@ -34,11 +34,11 @@ jobs:
       - name: Compile Native ROCm Libs (Docker)
         run: |
           mkdir -p artifacts
-          # Using 22.04 base image which has broader compatibility than 24.04 for ROCm currently
+          # Pin to ROCm 6.0.2 — ORT v1.19.2 cmake is incompatible with ROCm 7.x
           docker run --rm \
             -v ${{ github.workspace }}:/code \
             -w /code \
-            rocm/dev-ubuntu-22.04:latest \
+            rocm/dev-ubuntu-22.04:6.0.2 \
             /code/scripts/compile_onnx_rocm_docker.sh
 
       - name: Upload Native Artifacts
