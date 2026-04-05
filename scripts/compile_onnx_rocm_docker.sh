@@ -38,6 +38,13 @@ export ROCM_PATH="$ROCM_HOME"
 export HIP_PATH="$ROCM_HOME"
 export PATH="$ROCM_HOME/bin:$PATH"
 
+# Detect ROCm version from installed headers (auto-detection fails in this image)
+ROCM_MAJOR=$(grep -oP '(?<=ROCM_VERSION_MAJOR\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
+ROCM_MINOR=$(grep -oP '(?<=ROCM_VERSION_MINOR\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
+ROCM_PATCH=$(grep -oP '(?<=ROCM_VERSION_PATCH\s)\d+' "$ROCM_HOME/include/rocm_version.h" 2>/dev/null | head -1)
+ROCM_VERSION="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
+echo ">>> Detected ROCm version: $ROCM_VERSION"
+
 echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
 # --cmake_extra_defines: Optimizes for common RDNA2/3 architectures (gfx1030=RX6800/6900, gfx1031=RX6700, gfx1100=RX7900)
@@ -46,6 +53,7 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
     --build_wheel \
     --use_rocm \
     --rocm_home "$ROCM_HOME" \
+    --rocm_version "$ROCM_VERSION" \
     --skip_tests \
     --skip_submodule_sync \
     --parallel \
