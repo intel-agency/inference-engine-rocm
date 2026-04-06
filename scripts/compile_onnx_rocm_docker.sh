@@ -30,15 +30,21 @@ apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
 # All ROCm libraries + dev headers required by ORT v1.19.2 ROCm provider.
 # Use -dev variants to ensure headers (not just runtime .so) are present.
+# NOTE: rocthrust-dev is handled SEPARATELY below because it may not exist in all ROCm 6.x repos.
 apt-get install -y \
     hiprand-dev rocrand-dev rocblas-dev miopen-hip-dev hipfft-dev \
-    hipsparse-dev rccl-dev rocsparse-dev roctracer-dev rocm-smi-lib-dev hipblaslt-dev \
-    hipcub-dev rocprim-dev rocthrust-dev \
+    hipsparse-dev rccl-dev rocsparse-dev roctracer-dev hipblaslt-dev \
+    hipcub-dev rocprim-dev \
     2>/dev/null || \
 apt-get install -y \
     hiprand rocrand rocblas miopen-hip hipfft hipsparse rccl roctracer rocm-smi-lib hipblaslt \
     hipcub rocprim \
     2>/dev/null || true
+
+# rocthrust provides thrust-compatible headers at /opt/rocm/include/thrust/
+# Installed separately so its absence from the repo doesn't cascade-fail all other packages.
+apt-get install -y rocthrust-dev 2>/dev/null || apt-get install -y rocthrust 2>/dev/null || true
+echo ">>> rocthrust check: $(ls /opt/rocm/include/thrust/count.h 2>/dev/null && echo FOUND || echo 'NOT FOUND - will fail at compile')"
 
 # Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
 python3 -m pip install 'cmake>=3.26,<4.0' --upgrade
