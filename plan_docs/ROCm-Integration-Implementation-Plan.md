@@ -3,7 +3,7 @@
 > **Source repo:** `intel-agency/inference-engine-rocm` (this repo)
 > **Target repo:** `intel-agency/inference-engine-lib`
 > **Date:** 2026-04-06
-> **Status:** inference-engine-rocm has a fully passing 3-job CI pipeline (build → pack → validate). This document describes how to port those assets into inference-engine-lib.
+> **Status:** inference-engine-rocm has a fully passing 4-job CI pipeline (build → pack → validate → publish). This document describes how to port those assets into inference-engine-lib.
 
 ---
 
@@ -22,7 +22,7 @@ There is **no official NuGet package** for the OnnxRuntime ROCm execution provid
 
 This repo contains:
 1. A Dockerized compile script that builds ONNX Runtime v1.19.2 from source inside `rocm/dev-ubuntu-22.04:6.0.2`
-2. A GitHub Actions workflow that runs the compile (~58 min), packs the `.so` into a NuGet package, and validates the result
+2. A GitHub Actions workflow that runs the compile (~58 min), packs the `.so` into a NuGet package, validates the result, and publishes to GitHub Packages
 3. Tier-1 integration tests that verify the `.so` files are valid ELF binaries with correct symbol exports
 
 ### What inference-engine-lib Needs
@@ -69,10 +69,10 @@ This is the battle-tested compile script. It survived 16 iterations of CI debugg
 **Source:** `inference-engine-rocm/.github/workflows/build-rocm-linux.yml`
 **Target:** `inference-engine-lib/.github/workflows/build-rocm-linux.yml` (new file)
 
-The workflow has 3 jobs in sequence:
+The workflow has 4 jobs in sequence:
 
 ```
-build-rocm (57 min) → pack-nuget (30 sec) → validate-native (1 min)
+build-rocm (57 min) → pack-nuget (30 sec) → validate-native (1 min) → publish-github-packages (15 sec)
 ```
 
 **Adaptations for inference-engine-lib:**
@@ -84,7 +84,7 @@ build-rocm (57 min) → pack-nuget (30 sec) → validate-native (1 min)
    - `actions/upload-artifact@v4`
    - `actions/download-artifact@v4`
 3. **Pack versioning** — The rocm repo uses `1.0.0-rocm.${{ github.run_number }}`. In inference-engine-lib, align with the existing `${{ vars.VERSION_PREFIX }}.${{ github.run_number }}` pattern but add `-rocm` suffix: `${{ vars.VERSION_PREFIX }}.${{ github.run_number }}-rocm`
-4. **Publish step** — Consider adding a publish-to-GitHub-Packages step (matching the pattern in `publish.yml`) so the ROCm NuGet is available in the registry alongside the standard package
+4. **Publish step** — The source workflow already includes a `publish-github-packages` job that pushes to `https://nuget.pkg.github.com/intel-agency/index.json` using `GITHUB_TOKEN`. It runs after validation passes and uses `--skip-duplicate` to avoid conflicts. Adapt the `permissions:` block to match inference-engine-lib's token configuration
 
 ### 2.3 Validation Test Project (Copy + Adapt)
 
@@ -145,10 +145,10 @@ After porting, inference-engine-lib will have these workflows:
 | Workflow | Trigger | Jobs | Duration |
 |----------|---------|------|----------|
 | `build-test.yml` | push to main/dev, PRs | Build & Test (3 OS matrix) | ~5 min |
-| `build-rocm-linux.yml` | push + path filter, manual | build-rocm → pack-nuget → validate-native | ~60 min |
+| `build-rocm-linux.yml` | push + path filter, manual | build-rocm → pack-nuget → validate-native → publish-github-packages | ~60 min |
 | `publish.yml` | push to release, manual | Build → Pack → Publish (GitHub Packages + NuGet.org) | ~10 min |
 
-The ROCm workflow runs independently. It produces a ROCm-specific NuGet artifact. The standard `publish.yml` publishes the platform-agnostic package (CPU + DirectML + CoreML). The ROCm `.nupkg` could be published separately or the publish workflow could be extended to include the ROCm variant.
+The ROCm workflow runs independently and publishes the ROCm-specific NuGet package to GitHub Packages after validation passes. The standard `publish.yml` publishes the platform-agnostic package (CPU + DirectML + CoreML). Both packages coexist in the registry — the ROCm variant uses a `-rocm` version suffix (e.g., `1.0.0-rocm.42`).
 
 ---
 
@@ -180,10 +180,23 @@ The ROCm workflow runs independently. It produces a ROCm-specific NuGet artifact
 - [ ] Confirm `validate-native` job succeeds (all 9 Tier-1 tests pass)
 - [ ] Confirm `build-test.yml` still passes on all 3 OS platforms (no regression from the new test project)
 
-### Phase 5: Publish (Optional)
+### Phase 5: Publish
 
-- [ ] Add ROCm variant publish step to `publish.yml`, or create a separate `publish-rocm.yml`
-- [ ] Publish `InferenceEngine.Core` with ROCm natives to GitHub Packages
+The `publish-github-packages` job is already included in the workflow (runs after `validate-native`). Verify:
+
+- [ ] Confirm `publish-github-packages` job succeeds
+- [ ] Confirm package appears at `https://github.com/orgs/intel-agency/packages?repo_name=inference-engine-lib`
+- [ ] Consumers can reference it via:
+  ```xml
+  <!-- nuget.config -->
+  <packageSources>
+    <add key="intel-agency" value="https://nuget.pkg.github.com/intel-agency/index.json" />
+  </packageSources>
+  ```
+  ```xml
+  <!-- .csproj -->
+  <PackageReference Include="InferenceEngine.Core" Version="1.0.0-rocm.*" />
+  ```
 
 ---
 
@@ -233,7 +246,7 @@ When inference-engine-rocm is added to the workspace, these files are available 
 | File | Description |
 |------|-------------|
 | `inference-engine-rocm/scripts/compile_onnx_rocm_docker.sh` | The 150-line battle-tested compile script |
-| `inference-engine-rocm/.github/workflows/build-rocm-linux.yml` | 3-job workflow (build → pack → validate) |
+| `inference-engine-rocm/.github/workflows/build-rocm-linux.yml` | 4-job workflow (build → pack → validate → publish) |
 | `inference-engine-rocm/InferenceEngine.Core.IntegrationTests/NativeLibraryValidationTests.cs` | 9 Tier-1 validation tests |
 | `inference-engine-rocm/InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj` | Test project file |
 | `inference-engine-rocm/InferenceEngine.Core.IntegrationTests/Resources/identity.onnx` | 65-byte minimal ONNX model |
