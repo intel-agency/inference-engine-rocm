@@ -104,4 +104,33 @@ jobs:
         with:
           name: nuget-package-rocm
           path: ./nupkg/*.nupkg
-          retention-days: 7
+          retention-days: 30
+
+  validate-native:
+    name: Validate Native Libs
+    needs: pack-nuget
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download Native Artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-rocm-libs
+          path: native-libs
+
+      - name: Run Tier-1 validation tests
+        env:
+          NATIVE_LIBS_DIR: ${{ github.workspace }}/native-libs
+        run: |
+          dotnet test InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --logger "console;verbosity=normal"
