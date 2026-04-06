@@ -165,7 +165,7 @@ namespace InferenceEngine.Core
                     OutputMetadata = _session.OutputMetadata;
                     PrimaryInputName = InputMetadata.Keys.FirstOrDefault();
 
-                    _logger.LogInformation($"Model loaded. Provider: {_session.GetProviders().FirstOrDefault()}. Primary Input: {PrimaryInputName}");
+                    _logger.LogInformation($"Model loaded. Primary Input: {PrimaryInputName}");
                     _isLoaded = true;
 
                     // Handle First Run Responsibility: Warmup
