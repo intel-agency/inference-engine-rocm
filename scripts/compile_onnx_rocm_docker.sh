@@ -120,7 +120,7 @@ elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
 fi
 ./build.sh \
     --config Release \
-    --build_wheel \
+    --build_shared_lib \
     --use_rocm \
     --rocm_home "$ROCM_HOME" \
     --rocm_version "$ROCM_VERSION_STRING" \
