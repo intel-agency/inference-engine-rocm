@@ -2,32 +2,31 @@ name: Test Suite
 
 on:
   push:
-    branches: [ main, develop, development ]
+    branches: [main, develop, development]
   pull_request:
-    branches: [ main, develop, development ]
+    branches: [main, develop, development]
   workflow_dispatch:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    name: Python Tests on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.11', '3.12']
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install pytest pytest-cov hypothesis
       - name: Run tests with pytest
         run: |
           python -m pytest tests/ -v --tb=short
@@ -37,7 +36,7 @@ jobs:
           python -m pytest tests/ --cov=. --cov-report=xml --cov-report=term
       - name: Upload coverage reports
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: coverage.xml
