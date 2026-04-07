@@ -234,6 +234,12 @@ namespace InferenceEngine.Core.IntegrationTests
             {
                 // Expected on runners without AMD GPU — clean managed exception = pass
             }
+            catch (NotSupportedException)
+            {
+                // ORT 1.19.2: generic AppendExecutionProvider restricts which providers
+                // are accepted; ROCm must be added via AppendExecutionProvider_ROCm().
+                // NotSupportedException is still a clean managed exception = pass.
+            }
             // Any unmanaged crash (SIGABRT etc.) would fail the test by killing the process
         }
     }

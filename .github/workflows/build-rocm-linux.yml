@@ -140,9 +140,13 @@ jobs:
           # Windows PE onnxruntime.dll. Override it with our ROCm ELF so the load succeeds.
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/onnxruntime.dll"
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/libonnxruntime.so"
-          cp native-libs/libonnxruntime_providers_rocm.so "$OUTPUT_DIR/"
+          # NOTE: do NOT copy libonnxruntime_providers_rocm.so into the output dir.
+          # It has hard ROCm deps (librocblas, libamdhip64, etc.) that are absent on the
+          # CI runner. ORT scans the app dir for provider plugins at startup — placing
+          # the ROCm .so there triggers an eager dlopen that SIGABRT's the test host.
+          # The file/nm tests reach it via NATIVE_LIBS_DIR without loading it.
           echo "Native libs injected:"
-          ls -lh "$OUTPUT_DIR/"*onnx* "$OUTPUT_DIR/"*rocm* 2>/dev/null || true
+          ls -lh "$OUTPUT_DIR/onnxruntime.dll" "$OUTPUT_DIR/libonnxruntime.so"
 
       - name: Run Tier-1 validation tests
         env:

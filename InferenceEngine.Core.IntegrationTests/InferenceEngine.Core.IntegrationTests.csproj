@@ -19,7 +19,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <!-- Direct ORT reference for native library validation (no managed InferenceEngine.Core dependency) -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />
+    <!-- Version must match the native ORT build in scripts/compile_onnx_rocm_docker.sh (ORT_TAG=v1.19.2) -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.19.2" />
   </ItemGroup>
 
   <ItemGroup>
