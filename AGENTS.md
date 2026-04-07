@@ -1,57 +1,58 @@
-# Instructions for AI Agents (v1.5)
+# Instructions for AI Agents (v2.0)
 
 ## 1. Repository Overview
 
-This repo contains **InferenceEngine.Core** — a cross-platform .NET 10.0 library for AI inference via ONNX Runtime with hardware acceleration (DirectML on Windows, CoreML on macOS, ROCm on Linux AMD GPU) — plus Python tooling for SEDA artifact packaging and a test suite.
+This repo produces **InferenceEngine.ROCm.Runtime.linux-x64** — a native-only NuGet package containing ROCm-accelerated ONNX Runtime libraries for Linux x64. It fills the gap left by Microsoft's missing ROCm NuGet support.
 
 ### Structure
 
 ```text
-InferenceEngine.Core/   # .NET 10.0 C# library (primary deliverable)
-scripts/                # compile_onnx_rocm_docker.sh — builds native ROCm .so files
-tools/                  # seda_bootstrap.py, seda_packer.py — SEDA packaging utilities
-tests/                  # pytest test suite for Python tooling
-main.py                 # Python entry point (minimal)
-pyproject.toml          # Python project config (uv managed)
-pytest.ini              # pytest configuration
-inference-engine-rocm.sln  # .NET solution file
+InferenceEngine.Core/                            # Package project (native-only, no managed C# code)
+  InferenceEngine.ROCm.Runtime.linux-x64.csproj  # NuGet packaging
+  buildTransitive/                               # MSBuild targets for native asset precedence
+  runtimes/linux-x64/native/                     # .so files (injected by CI)
+InferenceEngine.Core.IntegrationTests/           # Tier-1 validation tests
+scripts/
+  compile_onnx_rocm_docker.sh                    # Docker-based ROCm compilation
+.github/workflows/
+  build-rocm-linux.yml                           # CI: build → pack → validate → publish
+inference-engine-rocm.sln                        # .NET solution
 ```
 
 ## 2. Build & Run Commands
 
-### .NET
+### .NET (packaging only — no managed code to compile)
 
 ```bash
-dotnet build                        # build the solution
-dotnet build InferenceEngine.Core/  # build just the library
-dotnet pack InferenceEngine.Core/   # produce NuGet package
-```
-
-### Python (managed via uv)
-
-```bash
-uv sync                # install all dependencies (dev group included)
-uv run pytest          # run the test suite
-uv run python main.py  # run the entry point
+dotnet build                        # build the solution (builds packaging project)
+dotnet pack InferenceEngine.Core/   # produce NuGet package (requires .so files in runtimes/)
 ```
 
 ### Linux ROCm Native Build (Docker)
 
 ```bash
-# Run inside rocm/dev-ubuntu-22.04 container, outputs to /code/artifacts/
-bash scripts/compile_onnx_rocm_docker.sh
-# Produces: libonnxruntime.so, libonnxruntime_providers_rocm.so
-# Copy artifacts to InferenceEngine.Core/runtimes/linux-x64/native/ before packing
+# Run inside rocm/dev-ubuntu-22.04:6.0.2 container, outputs to /code/artifacts/
+docker run --rm -v "$(pwd)":/code -w /code rocm/dev-ubuntu-22.04:6.0.2 \
+  /code/scripts/compile_onnx_rocm_docker.sh
+
+# Produces: libonnxruntime.so, libonnxruntime_providers_rocm.so in artifacts/
+# Copy to runtimes dir before packing:
+cp artifacts/*.so InferenceEngine.Core/runtimes/linux-x64/native/
+dotnet pack InferenceEngine.Core/
+```
+
+### Python (managed via uv — separate SEDA tooling)
+
+```bash
+uv sync                # install all dependencies (dev group included)
+uv run pytest          # run the test suite
 ```
 
 ## 3. Dependencies
 
-### .NET Packages
+### .NET Packages (integration tests only)
 
-- `Microsoft.ML.OnnxRuntime` 1.24.1 (base, CPU)
-- `Microsoft.ML.OnnxRuntime.DirectML` 1.23.0 (Windows only)
-- `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0
-- `Microsoft.Extensions.Logging.Abstractions` 10.0.3
+- `Microsoft.ML.OnnxRuntime` 1.24.1 (test project references this directly)
 
 ### Python (dev)
 
@@ -72,9 +73,11 @@ bash scripts/compile_onnx_rocm_docker.sh
 
 ## 5. Conventions
 
-- Target framework: `net10.0`, `requires-python = ">=3.14"`
-- Nullable reference types and implicit usings enabled in C#
-- Supported runtime identifiers: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`
+- Package target framework: `netstandard2.0` (native-only, broadest compatibility)
+- Integration tests target: `net10.0`
+- `requires-python = ">=3.14"` (for Python tooling)
 - License: AGPL-3.0-or-later
-- Python dependencies are declared in `pyproject.toml` only (`requirements-dev.txt` has been removed)
+- Branching: `development` → `staging` → `release` (continuous release on push to `release`)
+- Versioning: `{VERSION_PREFIX}-{suffix}.{run_number}` (SemVer 2.0, `VERSION_PREFIX` tracks ORT source version)
+- Python dependencies are declared in `pyproject.toml` only
 - pytest markers in use: `slow`, `integration`, `unit`

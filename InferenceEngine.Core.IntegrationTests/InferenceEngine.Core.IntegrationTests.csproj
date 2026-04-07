@@ -18,10 +18,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="../InferenceEngine.Core/InferenceEngine.Core.csproj" />
+    <!-- Direct ORT reference for native library validation (no managed InferenceEngine.Core dependency) -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />
   </ItemGroup>
 
   <ItemGroup>

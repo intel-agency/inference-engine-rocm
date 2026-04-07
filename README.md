@@ -1,95 +1,81 @@
-# InferenceEngine.Core
+# InferenceEngine.ROCm.Runtime.linux-x64
 
-A cross-platform .NET 10.0 library for AI inference via [ONNX Runtime](https://onnxruntime.ai/), with automatic hardware acceleration selection and a generic agent-friendly interface.
+ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU).
 
-**Motto:** *Write Once, Run Accelerated Anywhere.*
+**Drop-in replacement** for the CPU-only `libonnxruntime.so` shipped by [`Microsoft.ML.OnnxRuntime`](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime). Gives you AMD GPU acceleration on Linux without compiling from source.
 
-## Features
+## The Problem
 
-- Unified `BaseInferenceEngine<TInput, TOutput>` abstraction over ONNX Runtime
-- Automatic execution provider selection at runtime:
-  - **Windows** → DirectML (GPU)
-  - **macOS** → CoreML (GPU/ANE)
-  - **Linux AMD GPU** → ROCm (custom-compiled native `.so`)
-  - **Fallback** → CPU
-- Built-in model download and registry support
-- `ILogger` integration via `Microsoft.Extensions.Logging`
-- NuGet-packaged with symbols (`.snupkg`)
+Microsoft ships ONNX Runtime NuGet packages with GPU support for Windows (DirectML) and macOS (CoreML), but **not** for Linux AMD GPUs. The standard Linux package is CPU-only. To get ROCm acceleration, you have to compile ONNX Runtime from source yourself — a complex Docker build that takes 60+ minutes.
+
+## The Solution
+
+This package contains pre-compiled native libraries built from ONNX Runtime source with ROCm enabled. Install it and your .NET app automatically gets AMD GPU acceleration on Linux.
+
+## Install
+
+```bash
+dotnet add package InferenceEngine.ROCm.Runtime.linux-x64
+```
+
+If you're using [`InferenceEngine.Core`](https://github.com/intel-agency/inference-engine-lib), it references this package automatically — no action needed.
+
+## How It Works
+
+The package ships:
+
+- `libonnxruntime.so` — ROCm-enabled ONNX Runtime (replaces the CPU-only version)
+- `libonnxruntime_providers_rocm.so` — ROCm execution provider
+
+A `buildTransitive` MSBuild targets file ensures these take precedence over the CPU-only natives from `Microsoft.ML.OnnxRuntime`.
 
 ## Requirements
 
 | Component | Requirement |
 | :--- | :--- |
-| .NET SDK | 10.0+ |
-| Python (tooling) | 3.14+ |
-| ROCm (Linux GPU) | 5.x+ (via Docker build) |
+| OS | Linux x64 |
+| GPU | AMD (RDNA2+/CDNA recommended) |
+| ROCm drivers | 5.x+ installed on host |
+| .NET | 8.0+ (package is native-only, any TFM works) |
 
-## Getting Started
+## Building From Source
 
-### Install
-
-```bash
-dotnet add package InferenceEngine.Core
-```
-
-### Use
-
-```csharp
-using InferenceEngine.Core;
-
-// Derive from BaseInferenceEngine<TInput, TOutput> and implement:
-//   protected override string ModelName => "my-model.onnx";
-//   protected override TOutput Postprocess(IDisposableReadOnlyCollection<OrtValue> outputs, TInput input)
-//   protected override IReadOnlyCollection<NamedOnnxValue> Preprocess(TInput input)
-```
-
-The engine automatically loads the best available execution provider for the current platform.
-
-## Build
-
-```bash
-# .NET library
-dotnet build
-dotnet pack
-
-# Python tooling & tests
-uv sync
-uv run pytest
-```
-
-### Linux ROCm Native Build
-
-Building the ROCm execution provider requires an AMD GPU host and Docker:
+The native libraries are compiled from ONNX Runtime source inside a Docker container:
 
 ```bash
 docker run --rm -it \
-  --device=/dev/kfd --device=/dev/dri \
   -v "$(pwd)":/code \
-  rocm/dev-ubuntu-22.04 \
-  bash /code/scripts/compile_onnx_rocm_docker.sh
-
-# Copy artifacts before packing
-cp artifacts/libonnxruntime*.so InferenceEngine.Core/runtimes/linux-x64/native/
-dotnet pack InferenceEngine.Core/
+  -w /code \
+  rocm/dev-ubuntu-22.04:6.0.2 \
+  /code/scripts/compile_onnx_rocm_docker.sh
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full hybrid build pipeline.
+This compiles ONNX Runtime v1.19.2 with ROCm support, targeting gfx1030/gfx1031/gfx1100 GPU architectures. Output goes to `artifacts/`.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full build pipeline details.
 
 ## Project Structure
 
 ```text
-InferenceEngine.Core/          # .NET 10.0 C# library
-  BaseInferenceEngine.cs       # Core abstract engine
-  InferenceEngine.Core.csproj
+InferenceEngine.Core/                            # Package project (native-only, no managed code)
+  InferenceEngine.ROCm.Runtime.linux-x64.csproj  # NuGet packaging
+  buildTransitive/                               # MSBuild targets for native asset precedence
+  runtimes/linux-x64/native/                     # .so files (injected by CI)
+InferenceEngine.Core.IntegrationTests/           # Tier-1 validation (ELF, symbols, ORT loading)
 scripts/
-  compile_onnx_rocm_docker.sh  # Builds native ROCm .so inside Docker
-tools/
-  seda_bootstrap.py            # SEDA bootstrapper
-  seda_packer.py               # SEDA artifact packer
-tests/                         # pytest suite for Python tooling
-pyproject.toml                 # Python project (uv)
-inference-engine-rocm.sln      # .NET solution
+  compile_onnx_rocm_docker.sh                    # Docker-based ROCm compilation
+inference-engine-rocm.sln                        # .NET solution
 ```
+
+## Versioning
+
+Package versions track the ONNX Runtime source version:
+
+| Branch | Format | Example |
+| :--- | :--- | :--- |
+| `development` | `{ORT_VERSION}-dev.{build}` | `1.19.2-dev.42` |
+| `staging` | `{ORT_VERSION}-rc.{build}` | `1.19.2-rc.58` |
+| `release` | `{ORT_VERSION}.{build}` | `1.19.2.71` |
 
 ## License
 

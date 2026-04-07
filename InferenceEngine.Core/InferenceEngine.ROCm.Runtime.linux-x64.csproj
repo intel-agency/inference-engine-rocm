@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- This project has no managed code — it only packages native .so files -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>InferenceEngine.ROCm.Runtime.linux-x64</PackageId>
+    <!-- Version is set by CI/CD workflow: ${{ vars.VERSION_PREFIX }}-{suffix}.${{ github.run_number }} -->
+    <!-- Local builds use this default; CI overrides with -p:Version=$VERSION -->
+    <Version>1.0.0-dev</Version>
+    <Authors>intel-agency</Authors>
+    <Company>Artificial Intelligence Agency</Company>
+    <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU). Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm without requiring consumers to compile from source.</Description>
+    <PackageTags>onnxruntime;rocm;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/intel-agency/inference-engine-rocm</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/intel-agency/inference-engine-rocm</PackageProjectUrl>
+    <Title>ONNX Runtime ROCm Native Libraries for Linux x64</Title>
+    <Copyright>Copyright © 2026 Artificial Intelligence Agency. All rights reserved.</Copyright>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <!-- README packed into the NuGet package root -->
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Native .so files for linux-x64 runtime -->
+  <!-- These are injected by CI from the Docker ROCm build; .gitkeep ensures the directory exists -->
+  <ItemGroup>
+    <None Include="runtimes/linux-x64/native/*.so"
+          Pack="true"
+          PackagePath="runtimes/linux-x64/native/"
+          Condition="Exists('runtimes/linux-x64/native/')" />
+  </ItemGroup>
+
+  <!-- buildTransitive targets to override ORT CPU natives in consuming projects -->
+  <ItemGroup>
+    <None Include="buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets"
+          Pack="true"
+          PackagePath="buildTransitive/" />
+  </ItemGroup>
+
+</Project>

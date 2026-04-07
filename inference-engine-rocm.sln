@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InferenceEngine.Core", "InferenceEngine.Core\InferenceEngine.Core.csproj", "{214EC4CA-46D0-F536-3B32-A89E93665B77}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InferenceEngine.ROCm.Runtime.linux-x64", "InferenceEngine.Core\InferenceEngine.ROCm.Runtime.linux-x64.csproj", "{214EC4CA-46D0-F536-3B32-A89E93665B77}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InferenceEngine.Core.IntegrationTests", "InferenceEngine.Core.IntegrationTests\InferenceEngine.Core.IntegrationTests.csproj", "{71F41286-98FB-44E2-88F6-C2A93D87756E}"
 EndProject

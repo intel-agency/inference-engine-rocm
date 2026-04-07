@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    This targets file ensures InferenceEngine.ROCm.Runtime.linux-x64's native assets
+    take precedence over ALL conflicting native assets from transitive dependencies
+    (specifically Microsoft.ML.OnnxRuntime's CPU-only native libraries including
+    libonnxruntime.so, libonnxruntime_providers_shared.so, and any other ORT natives).
+
+    This prevents nondeterministic runtime loading of the wrong native library.
+
+    Any project that references this NuGet package will automatically get:
+    - ROCm-accelerated libonnxruntime.so replacing the CPU-only version
+    - libonnxruntime_providers_rocm.so for AMD GPU execution
+  -->
+
+  <Target Name="EnsureRocmNativeAssetPrecedence"
+          AfterTargets="ResolvePackageAssets"
+          BeforeTargets="CopyFilesToOutputDirectory">
+
+    <ItemGroup>
+      <!-- Identify this package's linux-x64 native assets -->
+      <_RocmNativeAssets Include="@(RuntimeCopyLocalItems)"
+                         Condition="'%(RuntimeCopyLocalItems.NuGetPackageId)' == 'InferenceEngine.ROCm.Runtime.linux-x64'
+                                    AND '%(RuntimeCopyLocalItems.AssetType)' == 'native'
+                                    AND '%(RuntimeCopyLocalItems.RuntimeIdentifier)' == 'linux-x64'" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <!-- Only remove conflicting ORT natives when this package actually ships its own linux-x64 assets.
+           Without this guard, a local dotnet pack (without the ROCm .so files) would strip the CPU-only
+           libonnxruntime.so leaving consumers with no native library at all. -->
+      <_HasRocmLinuxX64NativeAssets Condition="'@(_RocmNativeAssets)' != ''">true</_HasRocmLinuxX64NativeAssets>
+      <_HasRocmLinuxX64NativeAssets Condition="'@(_RocmNativeAssets)' == ''">false</_HasRocmLinuxX64NativeAssets>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <!-- Remove conflicting ORT native assets from other packages only when this package provides replacements -->
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)"
+                             Condition="'$(_HasRocmLinuxX64NativeAssets)' == 'true'
+                                        AND $([System.String]::Copy('%(RuntimeCopyLocalItems.NuGetPackageId)').StartsWith('Microsoft.ML.OnnxRuntime'))
+                                        AND '%(RuntimeCopyLocalItems.NuGetPackageId)' != 'InferenceEngine.ROCm.Runtime.linux-x64'
+                                        AND '%(RuntimeCopyLocalItems.AssetType)' == 'native'
+                                        AND '%(RuntimeCopyLocalItems.RuntimeIdentifier)' == 'linux-x64'" />
+
+      <!-- Remove any existing entries to prevent duplicates before re-adding -->
+      <RuntimeCopyLocalItems Remove="@(_RocmNativeAssets)"
+                             Condition="'$(_HasRocmLinuxX64NativeAssets)' == 'true'" />
+
+      <!-- Re-add this package's native assets to ensure they're copied with correct precedence -->
+      <RuntimeCopyLocalItems Include="@(_RocmNativeAssets)"
+                             Condition="'$(_HasRocmLinuxX64NativeAssets)' == 'true'" />
+    </ItemGroup>
+
+  </Target>
+
+</Project>

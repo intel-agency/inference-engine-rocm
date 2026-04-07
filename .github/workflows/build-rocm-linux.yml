@@ -1,11 +1,12 @@
-name: Build Linux ROCm & Pack
+name: Build ROCm Native & Pack
 
 on:
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
   push:
-    branches: [ "master", "main", "release" ]
+    branches: [development, staging, release]
     paths:
       - "scripts/compile_onnx_rocm_docker.sh"
+      - "InferenceEngine.Core/**"
       - ".github/workflows/build-rocm-linux.yml"
 
 env:
@@ -46,7 +47,7 @@ jobs:
         with:
           name: native-rocm-libs
           path: artifacts/*.so
-          retention-days: 1
+          retention-days: 5
 
   pack-nuget:
     name: Pack NuGet with ROCm
@@ -70,34 +71,33 @@ jobs:
 
       - name: Inject Native Assets
         run: |
-          echo "Injecting ROCm libraries into InferenceEngine.Core project structure..."
-
-          # Standard RID-based structure for native assets
+          echo "Injecting ROCm libraries into package structure..."
           TARGET_DIR="InferenceEngine.Core/runtimes/linux-x64/native"
           mkdir -p "$TARGET_DIR"
-
           cp temp_artifacts/libonnxruntime.so "$TARGET_DIR/"
           cp temp_artifacts/libonnxruntime_providers_rocm.so "$TARGET_DIR/"
+          ls -lh "$TARGET_DIR"
 
-          ls -R InferenceEngine.Core/runtimes
+      - name: Compute Package Version
+        run: |
+          PREFIX="${{ vars.VERSION_PREFIX }}"
+          RUN="${{ github.run_number }}"
+          case "${{ github.ref_name }}" in
+            development) VERSION="${PREFIX}-dev.${RUN}" ;;
+            staging)     VERSION="${PREFIX}-rc.${RUN}" ;;
+            release)     VERSION="${PREFIX}.${RUN}" ;;
+            *)           VERSION="${PREFIX}-local.${RUN}" ;;
+          esac
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Computed version: $VERSION"
 
       - name: Pack NuGet Package
         run: |
-          # Append -rocm suffix and run number to distinguish this build
-          VERSION="1.0.0-rocm.${{ github.run_number }}"
-          echo "Building version: $VERSION"
-
-          dotnet restore InferenceEngine.Core/InferenceEngine.Core.csproj
-
-          # Build
-          dotnet build InferenceEngine.Core/InferenceEngine.Core.csproj -c Release --no-restore
-
-          # Pack
-          dotnet pack InferenceEngine.Core/InferenceEngine.Core.csproj \
+          echo "Packing version: ${{ env.VERSION }}"
+          dotnet pack InferenceEngine.Core/InferenceEngine.ROCm.Runtime.linux-x64.csproj \
             --configuration Release \
-            --no-build \
             --output ./nupkg \
-            -p:Version=$VERSION
+            -p:Version=${{ env.VERSION }}
 
       - name: Upload NuGet Package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -160,4 +160,65 @@ jobs:
           dotnet nuget push "./nupkg/*.nupkg" \
             --source "https://nuget.pkg.github.com/intel-agency/index.json" \
             --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+
+  create-release:
+    name: Create GitHub Release & Publish to NuGet.org
+    needs: validate-native
+    if: github.ref_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download NuGet Package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nuget-package-rocm
+          path: ./nupkg
+
+      - name: Download Native Artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-rocm-libs
+          path: ./native-libs
+
+      - name: Compute Release Version
+        run: |
+          PREFIX="${{ vars.VERSION_PREFIX }}"
+          RUN="${{ github.run_number }}"
+          VERSION="${PREFIX}.${RUN}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Generate checksums
+        run: |
+          cd native-libs
+          sha256sum *.so > SHA256SUMS.txt
+          cd ../nupkg
+          sha256sum *.nupkg >> ../native-libs/SHA256SUMS.txt
+          echo "=== SHA256SUMS ==="
+          cat ../native-libs/SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: "v${{ env.VERSION }}"
+          generate_release_notes: true
+          files: |
+            native-libs/*.so
+            native-libs/SHA256SUMS.txt
+            nupkg/*.nupkg
+
+      - name: Publish to NuGet.org
+        run: |
+          dotnet nuget push "./nupkg/*.nupkg" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
             --skip-duplicate
