@@ -129,6 +129,7 @@ jobs:
       - name: Run Tier-1 validation tests
         env:
           NATIVE_LIBS_DIR: ${{ github.workspace }}/native-libs
+          LD_LIBRARY_PATH: ${{ github.workspace }}/native-libs
         run: |
           dotnet test InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
             --configuration Release \
