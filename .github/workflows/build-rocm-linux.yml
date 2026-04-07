@@ -126,14 +126,32 @@ jobs:
           name: native-rocm-libs
           path: native-libs
 
+      - name: Build test project
+        run: |
+          dotnet build InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
+            --configuration Release \
+            --runtime linux-x64
+
+      - name: Inject ROCm native libs into test output
+        run: |
+          OUTPUT_DIR="InferenceEngine.Core.IntegrationTests/bin/Release/net10.0/linux-x64"
+          # ORT 1.24.x uses [DllImport("onnxruntime.dll")] on all platforms.
+          # On Linux, .NET probes the app output dir first, where NuGet has placed the
+          # Windows PE onnxruntime.dll. Override it with our ROCm ELF so the load succeeds.
+          cp native-libs/libonnxruntime.so "$OUTPUT_DIR/onnxruntime.dll"
+          cp native-libs/libonnxruntime.so "$OUTPUT_DIR/libonnxruntime.so"
+          cp native-libs/libonnxruntime_providers_rocm.so "$OUTPUT_DIR/"
+          echo "Native libs injected:"
+          ls -lh "$OUTPUT_DIR/"*onnx* "$OUTPUT_DIR/"*rocm* 2>/dev/null || true
+
       - name: Run Tier-1 validation tests
         env:
           NATIVE_LIBS_DIR: ${{ github.workspace }}/native-libs
-          LD_LIBRARY_PATH: ${{ github.workspace }}/native-libs
         run: |
           dotnet test InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
             --configuration Release \
             --runtime linux-x64 \
+            --no-build \
             --logger "console;verbosity=normal"
 
   publish-github-packages:
