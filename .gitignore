@@ -8,6 +8,9 @@ seda_web_upgrade.smartpatch-dist-v1_4.seda
 seda_vault_upgrade.smartpatch-dist-v1_5.seda
 .archive/
 
+# VS Code C# language server cache
+*.lscache
+
 # Python
 *.py[cod]
 *$py.class
@@ -100,3 +103,4 @@ MigrationBackup/
 .DS_Store
 Thumbs.db
 desktop.ini
+*.lscache

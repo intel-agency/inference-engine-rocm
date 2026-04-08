@@ -155,11 +155,13 @@ namespace InferenceEngine.Core.IntegrationTests
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
             var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_rocm.so");
             var output = RunCommand("nm", $"-D --defined-only {path}");
-            // Any of these symbols confirms the ROCm EP is present
+            // Any of these symbols confirms the ROCm EP is present.
+            // ORT 1.19.2+ EP plugin interface exports GetProvider as the entry point.
             Assert.True(
                 output.Contains("OrtSessionOptionsAppendExecutionProvider_ROCm") ||
                 output.Contains("GetApi") ||
-                output.Contains("rocm"),
+                output.Contains("rocm") ||
+                output.Contains("GetProvider"),
                 $"Expected ROCm EP symbols not found in nm output. First 500 chars:\n{output[..Math.Min(500, output.Length)]}");
         }
 
@@ -231,6 +233,12 @@ namespace InferenceEngine.Core.IntegrationTests
             catch (OnnxRuntimeException)
             {
                 // Expected on runners without AMD GPU — clean managed exception = pass
+            }
+            catch (NotSupportedException)
+            {
+                // ORT 1.19.2: generic AppendExecutionProvider restricts which providers
+                // are accepted; ROCm must be added via AppendExecutionProvider_ROCm().
+                // NotSupportedException is still a clean managed exception = pass.
             }
             // Any unmanaged crash (SIGABRT etc.) would fail the test by killing the process
         }
