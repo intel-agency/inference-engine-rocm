@@ -35,11 +35,11 @@ jobs:
       - name: Compile Native ROCm Libs (Docker)
         run: |
           mkdir -p artifacts
-          # Pin to ROCm 6.0.2 — ORT v1.19.2 cmake is incompatible with ROCm 7.x
+          # ROCm 7.2.1 with MIGraphX EP (ORT v1.24.1)
           docker run --rm \
             -v ${{ github.workspace }}:/code \
             -w /code \
-            rocm/dev-ubuntu-22.04:6.0.2 \
+            rocm/dev-ubuntu-22.04:7.2.1 \
             /code/scripts/compile_onnx_rocm_docker.sh
 
       - name: Upload Native Artifacts
@@ -75,7 +75,7 @@ jobs:
           TARGET_DIR="InferenceEngine.Core/runtimes/linux-x64/native"
           mkdir -p "$TARGET_DIR"
           cp temp_artifacts/libonnxruntime.so "$TARGET_DIR/"
-          cp temp_artifacts/libonnxruntime_providers_rocm.so "$TARGET_DIR/"
+          cp temp_artifacts/libonnxruntime_providers_migraphx.so "$TARGET_DIR/"
           ls -lh "$TARGET_DIR"
 
       - name: Compute Package Version
@@ -140,10 +140,10 @@ jobs:
           # Windows PE onnxruntime.dll. Override it with our ROCm ELF so the load succeeds.
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/onnxruntime.dll"
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/libonnxruntime.so"
-          # NOTE: do NOT copy libonnxruntime_providers_rocm.so into the output dir.
-          # It has hard ROCm deps (librocblas, libamdhip64, etc.) that are absent on the
-          # CI runner. ORT scans the app dir for provider plugins at startup — placing
-          # the ROCm .so there triggers an eager dlopen that SIGABRT's the test host.
+          # NOTE: do NOT copy libonnxruntime_providers_migraphx.so into the output dir.
+          # It has hard ROCm/MIGraphX deps (libmigraphx, libamdhip64, etc.) that are absent
+          # on the CI runner. ORT scans the app dir for provider plugins at startup — placing
+          # the MIGraphX .so there triggers an eager dlopen that SIGABRT's the test host.
           # The file/nm tests reach it via NATIVE_LIBS_DIR without loading it.
           echo "Native libs injected:"
           ls -lh "$OUTPUT_DIR/onnxruntime.dll" "$OUTPUT_DIR/libonnxruntime.so"
