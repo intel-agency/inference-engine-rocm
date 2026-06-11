@@ -25,7 +25,7 @@ If you're using [`InferenceEngine.Core`](https://github.com/intel-agency/inferen
 The package ships:
 
 - `libonnxruntime.so` — ROCm-enabled ONNX Runtime (replaces the CPU-only version)
-- `libonnxruntime_providers_rocm.so` — ROCm execution provider
+- `libonnxruntime_providers_migraphx.so` — MIGraphX execution provider
 
 A `buildTransitive` MSBuild targets file ensures these take precedence over the CPU-only natives from `Microsoft.ML.OnnxRuntime`.
 
@@ -46,11 +46,11 @@ The native libraries are compiled from ONNX Runtime source inside a Docker conta
 docker run --rm -it \
   -v "$(pwd)":/code \
   -w /code \
-  rocm/dev-ubuntu-22.04:6.0.2 \
+  rocm/dev-ubuntu-22.04:7.2.1 \
   /code/scripts/compile_onnx_rocm_docker.sh
 ```
 
-This compiles ONNX Runtime v1.19.2 with ROCm support, targeting gfx1030/gfx1031/gfx1100 GPU architectures. Output goes to `artifacts/`.
+This compiles ONNX Runtime v1.24.1 with MIGraphX support, targeting gfx1030/gfx1031/gfx1100/gfx1101/gfx1102 GPU architectures. Output goes to `artifacts/`.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full build pipeline details.
 
@@ -73,9 +73,34 @@ Package versions track the ONNX Runtime source version:
 
 | Branch | Format | Example |
 | :--- | :--- | :--- |
-| `development` | `{ORT_VERSION}-dev.{build}` | `1.19.2-dev.42` |
-| `staging` | `{ORT_VERSION}-rc.{build}` | `1.19.2-rc.58` |
-| `release` | `{ORT_VERSION}.{build}` | `1.19.2.71` |
+| `development` | `{ORT_VERSION}-dev.{build}` | `1.24.1-dev.42` |
+| `staging` | `{ORT_VERSION}-rc.{build}` | `1.24.1-rc.58` |
+| `release` | `{ORT_VERSION}.{build}` | `1.24.1.71` |
+
+## Migration from ROCm EP
+
+This package now uses AMD's MIGraphX Execution Provider (the official successor to ROCm EP).
+
+### API Changes
+
+**Before (ROCm EP):**
+
+```csharp
+opts.AppendExecutionProvider("ROCmExecutionProvider", new Dictionary<string, string> { { "device_id", "0" } });
+```
+
+**After (MIGraphX EP):**
+
+```csharp
+opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string, string> { { "device_id", "0" } });
+```
+
+### Version Compatibility
+
+| Package Version | ORT Version | ROCm Version | Execution Provider |
+|:---|:---|:---|:---|
+| 1.24.1.x | 1.24.1 | 7.2.1 | MIGraphX |
+| 1.19.2.x | 1.19.2 | 6.0.2 | ROCm (deprecated) |
 
 ## License
 
