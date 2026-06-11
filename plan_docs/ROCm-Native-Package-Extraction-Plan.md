@@ -3,6 +3,7 @@
 **Date:** 2026-04-06
 **Status:** Draft
 **Repos:**
+
 - `intel-agency/inference-engine-rocm` — becomes the standalone native package
 - `intel-agency/inference-engine-lib` — becomes a consumer of that package
 
@@ -14,7 +15,8 @@ Microsoft does not ship a NuGet package with ROCm-accelerated ONNX Runtime nativ
 
 ## 2. Current State
 
-### `inference-engine-rocm` today ships:
+### `inference-engine-rocm` today ships
+
 | Asset | Should stay? | Notes |
 |---|---|---|
 | `scripts/compile_onnx_rocm_docker.sh` | **Yes** | Core build script, pins ORT v1.19.2 + ROCm 6.0.2 |
@@ -26,7 +28,8 @@ Microsoft does not ship a NuGet package with ROCm-accelerated ONNX Runtime nativ
 | `ARCHITECTURE.md` | **Yes** (update) | Good docs, update to reflect new package scope |
 | Python tooling (`main.py`, `pyproject.toml`, SEDA) | **Evaluate** | Orthogonal to the native package; keep or move separately |
 
-### `inference-engine-lib` today:
+### `inference-engine-lib` today
+
 - Has `buildTransitive/InferenceEngine.Core.targets` to override ORT CPU natives with ROCm natives
 - CI injects `.so` files directly into `runtimes/linux-x64/native/` during pack
 - Ships the `.so` files embedded in the main `InferenceEngine.Core` NuGet package
@@ -97,6 +100,7 @@ Replace the current managed library `.csproj` with a minimal packaging project:
 #### 1b. Remove all duplicated C# library code
 
 Delete from `inference-engine-rocm`:
+
 - `InferenceEngine.Core/BaseInferenceEngine.cs`
 - `InferenceEngine.Core/IInferenceEngine.cs`
 - `InferenceEngine.Core/InferenceEngineOptions.cs`
@@ -111,6 +115,7 @@ Port `inference-engine-lib`'s `buildTransitive/InferenceEngine.Core.targets` her
 #### 1d. Adapt integration tests
 
 `NativeLibraryValidationTests.cs` should validate:
+
 - The `.so` files exist in the expected `runtimes/` path
 - The `.so` files are ELF binaries with expected symbols
 - The packed `.nupkg` contains the correct `runtimes/linux-x64/native/` entries
