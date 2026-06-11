@@ -94,13 +94,16 @@ namespace InferenceEngine.Core.IntegrationTests
         {
             var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_migraphx.so");
             Assert.True(File.Exists(path), $"Missing: {path}");
+
+            var sharedPath = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_shared.so");
+            Assert.True(File.Exists(sharedPath), $"Missing: {sharedPath}");
         }
 
         [Fact]
         public void BothLibs_AreNonEmpty()
         {
             var dir = GetNativeLibsDir();
-            foreach (var name in new[] { "libonnxruntime.so", "libonnxruntime_providers_migraphx.so" })
+            foreach (var name in new[] { "libonnxruntime.so", "libonnxruntime_providers_migraphx.so", "libonnxruntime_providers_shared.so" })
             {
                 var info = new FileInfo(Path.Combine(dir, name));
                 Assert.True(info.Exists && info.Length > 1_000_000,

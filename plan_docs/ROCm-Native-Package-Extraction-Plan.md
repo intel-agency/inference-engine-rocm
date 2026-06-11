@@ -19,7 +19,7 @@ Microsoft does not ship a NuGet package with ROCm-accelerated ONNX Runtime nativ
 
 | Asset | Should stay? | Notes |
 |---|---|---|
-| `scripts/compile_onnx_rocm_docker.sh` | **Yes** | Core build script, pins ORT v1.19.2 + ROCm 6.0.2 |
+| `scripts/compile_onnx_rocm_docker.sh` | **Yes** | Core build script, pins ORT v1.24.1 + ROCm 7.2.1 (MIGraphX EP) |
 | `.github/workflows/build-rocm-linux.yml` | **Yes** (modify) | 4-job pipeline: build → pack → validate → publish |
 | `InferenceEngine.Core/*.cs` | **No** — remove | Full duplicate of inference-engine-lib's C# code |
 | `InferenceEngine.Core/ModelProviders/*.cs` | **No** — remove | Same |

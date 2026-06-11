@@ -22,7 +22,9 @@ There is **no official NuGet package** for the OnnxRuntime ROCm execution provid
 
 This repo contains:
 
-1. A Dockerized compile script that builds ONNX Runtime v1.19.2 from source inside `rocm/dev-ubuntu-22.04:6.0.2`
+1. A Dockerized compile script that builds ONNX Runtime from source inside `rocm/dev-ubuntu-22.04` containers
+   - **Historical:** v1.19.2 + ROCm 6.0.2 (original ROCm EP)
+   - **Current:** v1.24.1 + ROCm 7.2.1 (MIGraphX EP — see MIGraphX-Migration-Plan.md)
 2. A GitHub Actions workflow that runs the compile (~58 min), packs the `.so` into a NuGet package, validates the result, and publishes to GitHub Packages
 3. Tier-1 integration tests that verify the `.so` files are valid ELF binaries with correct symbol exports
 
@@ -220,7 +222,7 @@ The ROCm compile job takes **~58 minutes** on `ubuntu-latest`. This is unavoidab
 
 ### Docker Image Pinning
 
-**Do not** update `rocm/dev-ubuntu-22.04:6.0.2` without testing. ROCm 7.x images break ORT v1.19.2's cmake configuration. If you need to update ORT version, the Docker image version will need to be re-validated.
+**Do not** update the ROCm Docker image version without testing. The current build uses `rocm/dev-ubuntu-22.04:7.2.1` with ORT v1.24.1 and the MIGraphX Execution Provider (see MIGraphX-Migration-Plan.md). Earlier builds used `rocm/dev-ubuntu-22.04:6.0.2` with ORT v1.19.2 and the now-deprecated ROCm EP. If you need to update the ORT version, the Docker image version will need to be re-validated.
 
 ### cmake Version
 

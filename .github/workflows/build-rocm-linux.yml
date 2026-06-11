@@ -75,6 +75,7 @@ jobs:
           TARGET_DIR="InferenceEngine.Core/runtimes/linux-x64/native"
           mkdir -p "$TARGET_DIR"
           cp temp_artifacts/libonnxruntime.so "$TARGET_DIR/"
+          cp temp_artifacts/libonnxruntime_providers_shared.so "$TARGET_DIR/"
           cp temp_artifacts/libonnxruntime_providers_migraphx.so "$TARGET_DIR/"
           ls -lh "$TARGET_DIR"
 
@@ -140,6 +141,7 @@ jobs:
           # Windows PE onnxruntime.dll. Override it with our ROCm ELF so the load succeeds.
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/onnxruntime.dll"
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/libonnxruntime.so"
+          cp native-libs/libonnxruntime_providers_shared.so "$OUTPUT_DIR/libonnxruntime_providers_shared.so"
           # NOTE: do NOT copy libonnxruntime_providers_migraphx.so into the output dir.
           # It has hard ROCm/MIGraphX deps (libmigraphx, libamdhip64, etc.) that are absent
           # on the CI runner. ORT scans the app dir for provider plugins at startup — placing

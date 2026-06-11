@@ -92,6 +92,11 @@ fi
 ROCM_VERSION_STRING="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
 echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
 
+if [ -z "$ROCM_MAJOR" ] || [ -z "$ROCM_MINOR" ] || [ -z "$ROCM_PATCH" ]; then
+    echo "ERROR: Failed to detect ROCm version components (Major: '$ROCM_MAJOR', Minor: '$ROCM_MINOR', Patch: '$ROCM_PATCH')." >&2
+    exit 1
+fi
+
 # ALWAYS rewrite rocm_version.h in the exact format ORT v1.24.1 cmake expects.
 # Newer ROCm images ship this header in a different format that breaks ORT cmake.
 echo ">>> Writing $ROCM_HOME/include/rocm_version.h (ORT-compatible format)"
@@ -111,11 +116,21 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # ORT v1.24.1 deps.txt pins commit 1d8b82b0 from the eigen-mirror GitHub repo.
 EIGEN_SRC_DIR="/code/external_build_work/eigen-src"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
+
+if [ -d "$EIGEN_SRC_DIR/.git" ]; then
+    CURRENT_REMOTE=$(git -C "$EIGEN_SRC_DIR" config --get remote.origin.url 2>/dev/null || true)
+    if [[ "$CURRENT_REMOTE" != *"github.com/eigen-mirror/eigen"* ]]; then
+        echo ">>> Remote mismatch (found $CURRENT_REMOTE), recreating Eigen directory..."
+        rm -rf "$EIGEN_SRC_DIR"
+    fi
+fi
+
 if [ ! -d "$EIGEN_SRC_DIR/.git" ]; then
     echo ">>> Pre-fetching Eigen commit $EIGEN_COMMIT..."
     git clone https://github.com/eigen-mirror/eigen.git "$EIGEN_SRC_DIR"
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
+    git -C "$EIGEN_SRC_DIR" fetch origin
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 fi
 ./build.sh \
@@ -134,6 +149,7 @@ fi
 echo " SUCCESS! Copying artifacts..."
 mkdir -p /code/artifacts
 cp build/Linux/Release/libonnxruntime.so /code/artifacts/
+cp build/Linux/Release/libonnxruntime_providers_shared.so /code/artifacts/
 cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/
 
 echo "Artifacts copied to /code/artifacts"

@@ -238,7 +238,7 @@ public void InferenceSession_WithMIGraphXEP_ThrowsCleanExceptionNotCrash()  // w
 
 **Key Sections to Add:**
 
-```markdown
+````markdown
 ## Migration from ROCm EP
 
 This package now uses AMD's MIGraphX Execution Provider (the official successor to ROCm EP).
@@ -263,7 +263,7 @@ opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string,
 | 1.24.1.x       | 1.24.1      | 7.2.1        | MIGraphX          |
 | 1.19.2.x       | 1.19.2      | 6.0.2        | ROCm (deprecated) |
 
-```
+````
 
 **Complexity:** LOW  
 **Risk:** LOW  
