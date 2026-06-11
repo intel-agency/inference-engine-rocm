@@ -89,13 +89,13 @@ if [ -z "$ROCM_MAJOR" ]; then
     ROCM_PATCH=$(echo "$_INFO_VER" | cut -d. -f3)
 fi
 
-ROCM_VERSION_STRING="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
-echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
-
 if [ -z "$ROCM_MAJOR" ] || [ -z "$ROCM_MINOR" ] || [ -z "$ROCM_PATCH" ]; then
     echo "ERROR: Failed to detect ROCm version components (Major: '$ROCM_MAJOR', Minor: '$ROCM_MINOR', Patch: '$ROCM_PATCH')." >&2
     exit 1
 fi
+
+ROCM_VERSION_STRING="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
+echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
 
 # ALWAYS rewrite rocm_version.h in the exact format ORT v1.24.1 cmake expects.
 # Newer ROCm images ship this header in a different format that breaks ORT cmake.
