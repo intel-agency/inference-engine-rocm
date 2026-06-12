@@ -4,7 +4,7 @@
 
 This repository produces **InferenceEngine.ROCm.Runtime.linux-x64**, a native-only NuGet package that ships pre-compiled ROCm-accelerated ONNX Runtime libraries for Linux x64. It is a drop-in replacement for the CPU-only `libonnxruntime.so` shipped by `Microsoft.ML.OnnxRuntime`.
 
-**Core Philosophy:** Fill the "Native Gap" — Microsoft doesn't ship ROCm support for Linux via NuGet, so we compile it and distribute it as a package.
+**Core Philosophy:** Fill the "Native Gap" — Microsoft doesn't ship MIGraphX/ROCm support for Linux via NuGet, so we compile it and distribute it as a package.
 
 ---
 
@@ -44,12 +44,12 @@ graph TD
     end
 
     subgraph Build_Pipeline
-        Docker[ROCm Docker Image] --> |Compiles| NativeSo[libonnxruntime.so + providers_rocm.so]
+        Docker[ROCm Docker Image] --> |Compiles| NativeSo[libonnxruntime.so + providers_migraphx.so]
         NativeSo --> |Packed into| Nuget[.nupkg]
     end
 ```
 
-The `buildTransitive` targets file ensures that when both this package and `Microsoft.ML.OnnxRuntime` are present, the ROCm-enabled natives replace the CPU-only ones for `linux-x64`.
+The `buildTransitive` targets file ensures that when both this package and `Microsoft.ML.OnnxRuntime` are present, the MIGraphX-enabled natives replace the CPU-only ones for `linux-x64`.
 
 ---
 
@@ -59,11 +59,11 @@ The `buildTransitive` targets file ensures that when both this package and `Micr
 
 **Script:** `scripts/compile_onnx_rocm_docker.sh`
 
-* **Environment:** Uses `rocm/dev-ubuntu-22.04:6.0.2` image to guarantee correct compiler (`hipcc`) and system dependencies.
+* **Environment:** Uses `rocm/dev-ubuntu-22.04:7.2.1` image to guarantee correct compiler (`hipcc`), MIGraphX libraries, and system dependencies.
 * **Process:**
-    1. Clones specific ONNX Runtime tag (e.g., `v1.19.2`).
-    2. Compiles with `--use_rocm` and `--cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100"`.
-    3. **Outputs:** `libonnxruntime.so` and `libonnxruntime_providers_rocm.so` to `artifacts/`.
+    1. Clones specific ONNX Runtime tag (e.g., `v1.24.1`).
+    2. Compiles with `--use_migraphx` and `--cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100;gfx1101;gfx1102"`.
+    3. **Outputs:** `libonnxruntime.so` and `libonnxruntime_providers_migraphx.so` to `artifacts/`.
 
 ### 4.2. CI/CD Workflow (`.github/workflows/build-rocm-linux.yml`)
 
@@ -81,11 +81,11 @@ Version is computed from the branch name and a repository variable:
 
 | Branch | Format | Example |
 | :--- | :--- | :--- |
-| `development` | `{VERSION_PREFIX}-dev.{run}` | `1.19.2-dev.42` |
-| `staging` | `{VERSION_PREFIX}-rc.{run}` | `1.19.2-rc.58` |
-| `release` | `{VERSION_PREFIX}.{run}` | `1.19.2.71` |
+| `development` | `{VERSION_PREFIX}-dev.{run}` | `1.24.1-dev.42` |
+| `staging` | `{VERSION_PREFIX}-rc.{run}` | `1.24.1-rc.58` |
+| `release` | `{VERSION_PREFIX}.{run}` | `1.24.1.71` |
 
-`VERSION_PREFIX` is set to the ORT source version (e.g., `1.19.2`) as a GitHub repository variable.
+`VERSION_PREFIX` is set to the ORT source version (e.g., `1.24.1`) as a GitHub repository variable.
 
 ---
 
@@ -95,19 +95,19 @@ Version is computed from the branch name and a repository variable:
 
 ```xml
 <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />
-<PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="1.19.2" />
+<PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="1.24.1" />
 ```
 
-The `buildTransitive` targets automatically replace the CPU-only native with the ROCm build at build time. No code changes needed — `OrtEnv.Instance()` and `InferenceSession` pick up the ROCm provider automatically on Linux with AMD GPU.
+The `buildTransitive` targets automatically replace the CPU-only native with the MIGraphX build at build time. No code changes needed — `OrtEnv.Instance()` and `InferenceSession` pick up the MIGraphX provider automatically on Linux with AMD GPU.
 
 ### Via InferenceEngine.Core
 
-[`InferenceEngine.Core`](https://github.com/intel-agency/inference-engine-lib) references this package. Its `BaseInferenceEngine` detects Linux + AMD GPU at runtime and loads the ROCm execution provider via the string API:
+[`InferenceEngine.Core`](https://github.com/intel-agency/inference-engine-lib) references this package. Its `BaseInferenceEngine` detects Linux + AMD GPU at runtime and loads the MIGraphX execution provider via the string API:
 
 ```csharp
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
 {
-    var rocmOptions = new Dictionary<string, string> { { "device_id", "0" } };
-    options.AppendExecutionProvider("ROCmExecutionProvider", rocmOptions);
+    var migraphxOptions = new Dictionary<string, string> { { "device_id", "0" } };
+    options.AppendExecutionProvider("MIGraphXExecutionProvider", migraphxOptions);
 }
 ```

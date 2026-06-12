@@ -2,8 +2,8 @@
 set -e
 
 # === CONFIGURATION ===
-# We pin to v1.19.2 because 'main' is unstable and often breaks build flags
-ORT_TAG="v1.19.2"
+# We pin to v1.24.1 because 'main' is unstable and often breaks build flags
+ORT_TAG="v1.24.1"
 ROCM_HOME="/opt/rocm"
 
 echo ">>> [0/5] Installing git (not present in base ROCm image)..."
@@ -28,17 +28,17 @@ echo ">>> [3/5] Installing Build Dependencies..."
 # The base image is barebones; we need cmake and python tools
 apt-get update
 apt-get install -y build-essential cmake git python3 python3-dev python3-pip libprotobuf-dev protobuf-compiler
-# All ROCm libraries + dev headers required by ORT v1.19.2 ROCm provider.
+# All ROCm libraries + dev headers required by ORT v1.24.1 MIGraphX provider.
 # Use -dev variants to ensure headers (not just runtime .so) are present.
-# NOTE: rocthrust-dev is handled SEPARATELY below because it may not exist in all ROCm 6.x repos.
+# NOTE: rocthrust-dev is handled SEPARATELY below because it may not exist in all ROCm repos.
 apt-get install -y \
     hiprand-dev rocrand-dev rocblas-dev miopen-hip-dev hipfft-dev \
     hipsparse-dev rccl-dev rocsparse-dev roctracer-dev hipblaslt-dev \
-    hipcub-dev rocprim-dev \
+    hipcub-dev rocprim-dev migraphx-dev \
     2>/dev/null || \
 apt-get install -y \
     hiprand rocrand rocblas miopen-hip hipfft hipsparse rccl roctracer rocm-smi-lib hipblaslt \
-    hipcub rocprim \
+    hipcub rocprim migraphx \
     2>/dev/null || true
 
 # rocthrust provides thrust-compatible headers at /opt/rocm/include/thrust/
@@ -89,10 +89,15 @@ if [ -z "$ROCM_MAJOR" ]; then
     ROCM_PATCH=$(echo "$_INFO_VER" | cut -d. -f3)
 fi
 
+if [ -z "$ROCM_MAJOR" ] || [ -z "$ROCM_MINOR" ] || [ -z "$ROCM_PATCH" ]; then
+    echo "ERROR: Failed to detect ROCm version components (Major: '$ROCM_MAJOR', Minor: '$ROCM_MINOR', Patch: '$ROCM_PATCH')." >&2
+    exit 1
+fi
+
 ROCM_VERSION_STRING="${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_PATCH}"
 echo ">>> Detected ROCm version: $ROCM_VERSION_STRING"
 
-# ALWAYS rewrite rocm_version.h in the exact format ORT v1.19.2 cmake expects.
+# ALWAYS rewrite rocm_version.h in the exact format ORT v1.24.1 cmake expects.
 # Newer ROCm images ship this header in a different format that breaks ORT cmake.
 echo ">>> Writing $ROCM_HOME/include/rocm_version.h (ORT-compatible format)"
 mkdir -p "$ROCM_HOME/include"
@@ -107,34 +112,46 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 # --skip_tests: Crucial because the build container usually cannot access the GPU hardware directly
 # --cmake_extra_defines: Optimizes for common RDNA2/3 architectures (gfx1030=RX6800/6900, gfx1031=RX6700, gfx1100=RX7900)
 
-# Pre-fetch the exact Eigen commit ORT v1.19.2 pins to avoid GitLab tarball
-# hash instability. ORT deps.txt pins commit e7248b26 (3.4 branch, not tag).
+# Pre-fetch the exact Eigen commit ORT v1.24.1 pins to avoid tarball hash instability.
+# ORT v1.24.1 deps.txt pins commit 1d8b82b0 from the eigen-mirror GitHub repo.
 EIGEN_SRC_DIR="/code/external_build_work/eigen-src"
-EIGEN_COMMIT="e7248b26a1ed53fa030c5c459f7ea095dfd276ac"
+EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
+
+if [ -d "$EIGEN_SRC_DIR/.git" ]; then
+    CURRENT_REMOTE=$(git -C "$EIGEN_SRC_DIR" config --get remote.origin.url 2>/dev/null || true)
+    if [[ "$CURRENT_REMOTE" != *"github.com/eigen-mirror/eigen"* ]]; then
+        echo ">>> Remote mismatch (found $CURRENT_REMOTE), recreating Eigen directory..."
+        rm -rf "$EIGEN_SRC_DIR"
+    fi
+fi
+
 if [ ! -d "$EIGEN_SRC_DIR/.git" ]; then
     echo ">>> Pre-fetching Eigen commit $EIGEN_COMMIT..."
-    git clone https://gitlab.com/libeigen/eigen.git "$EIGEN_SRC_DIR"
+    git clone https://github.com/eigen-mirror/eigen.git "$EIGEN_SRC_DIR"
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
+    if ! git -C "$EIGEN_SRC_DIR" cat-file -e "$EIGEN_COMMIT" 2>/dev/null; then
+        git -C "$EIGEN_SRC_DIR" fetch origin
+    fi
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 fi
 ./build.sh \
     --config Release \
     --build_shared_lib \
-    --use_rocm \
+    --use_migraphx \
+    --migraphx_home "$ROCM_HOME" \
     --rocm_home "$ROCM_HOME" \
-    --rocm_version "$ROCM_VERSION_STRING" \
     --skip_tests \
     --skip_submodule_sync \
     --parallel \
     --allow_running_as_root \
-    --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100" \
-    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR" \
-    --cmake_extra_defines onnxruntime_USE_COMPOSABLE_KERNEL=OFF
+    --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100;gfx1101;gfx1102" \
+    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR"
 
 echo " SUCCESS! Copying artifacts..."
 mkdir -p /code/artifacts
 cp build/Linux/Release/libonnxruntime.so /code/artifacts/
-cp build/Linux/Release/libonnxruntime_providers_rocm.so /code/artifacts/
+cp build/Linux/Release/libonnxruntime_providers_shared.so /code/artifacts/
+cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/
 
 echo "Artifacts copied to /code/artifacts"
