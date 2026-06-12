@@ -10,6 +10,9 @@ on:
       - "InferenceEngine.Core.IntegrationTests/**"
       - ".github/workflows/build-rocm-linux.yml"
 
+permissions:
+  contents: read
+
 env:
   DOTNET_VERSION: "10.0.x"
 

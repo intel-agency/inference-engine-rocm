@@ -2,7 +2,7 @@
 set -e
 
 # === CONFIGURATION ===
-# We pin to v1.19.2 because 'main' is unstable and often breaks build flags
+# We pin to v1.24.1 because 'main' is unstable and often breaks build flags
 ORT_TAG="v1.24.1"
 ROCM_HOME="/opt/rocm"
 

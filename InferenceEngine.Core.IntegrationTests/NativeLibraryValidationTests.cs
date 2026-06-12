@@ -231,23 +231,13 @@ namespace InferenceEngine.Core.IntegrationTests
             try
             {
                 using var opts = new SessionOptions();
-                var migraphxOptions = new System.Collections.Generic.Dictionary<string, string>
-                {
-                    { "device_id", "0" }
-                };
-                opts.AppendExecutionProvider("MIGraphXExecutionProvider", migraphxOptions);
+                opts.AppendExecutionProvider_MIGraphX(0);
                 using var session = new InferenceSession(ModelPath, opts);
                 // If we reach here, MIGraphX is actually available — also a pass
             }
             catch (OnnxRuntimeException)
             {
                 // Expected on runners without AMD GPU — clean managed exception = pass
-            }
-            catch (NotSupportedException)
-            {
-                // ORT may restrict which providers are accepted via the generic
-                // AppendExecutionProvider string API. NotSupportedException is still
-                // a clean managed exception = pass.
             }
             // Any unmanaged crash (SIGABRT etc.) would fail the test by killing the process
         }
