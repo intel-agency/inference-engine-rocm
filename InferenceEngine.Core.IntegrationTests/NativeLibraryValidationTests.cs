@@ -107,7 +107,7 @@ namespace InferenceEngine.Core.IntegrationTests
             {
                 ("libonnxruntime.so", 1_000_000),
                 ("libonnxruntime_providers_migraphx.so", 100_000),
-                ("libonnxruntime_providers_shared.so", 100_000),
+                ("libonnxruntime_providers_shared.so", 10_000),   // thin shim when EPs are split out
             };
             foreach (var (name, minBytes) in thresholds)
             {
