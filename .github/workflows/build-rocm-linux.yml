@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/compile_onnx_rocm_docker.sh"
       - "InferenceEngine.Core/**"
+      - "InferenceEngine.Core.IntegrationTests/**"
       - ".github/workflows/build-rocm-linux.yml"
 
 env:
