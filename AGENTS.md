@@ -2,7 +2,7 @@
 
 ## 1. Repository Overview
 
-This repo produces **InferenceEngine.ROCm.Runtime.linux-x64** — a native-only NuGet package containing ROCm-accelerated ONNX Runtime libraries for Linux x64. It fills the gap left by Microsoft's missing ROCm NuGet support.
+This repo produces **InferenceEngine.ROCm.Runtime.linux-x64** — a native-only NuGet package containing ROCm-accelerated ONNX Runtime libraries for Linux x64 using AMD's MIGraphX Execution Provider. It fills the gap left by Microsoft's missing ROCm NuGet support.
 
 ### Structure
 
@@ -31,11 +31,11 @@ dotnet pack InferenceEngine.Core/   # produce NuGet package (requires .so files 
 ### Linux ROCm Native Build (Docker)
 
 ```bash
-# Run inside rocm/dev-ubuntu-22.04:6.0.2 container, outputs to /code/artifacts/
-docker run --rm -v "$(pwd)":/code -w /code rocm/dev-ubuntu-22.04:6.0.2 \
+# Run inside rocm/dev-ubuntu-22.04:7.2.1 container, outputs to /code/artifacts/
+docker run --rm -v "$(pwd)":/code -w /code rocm/dev-ubuntu-22.04:7.2.1 \
   /code/scripts/compile_onnx_rocm_docker.sh
 
-# Produces: libonnxruntime.so, libonnxruntime_providers_rocm.so in artifacts/
+# Produces: libonnxruntime.so, libonnxruntime_providers_migraphx.so in artifacts/
 # Copy to runtimes dir before packing:
 cp artifacts/*.so InferenceEngine.Core/runtimes/linux-x64/native/
 dotnet pack InferenceEngine.Core/

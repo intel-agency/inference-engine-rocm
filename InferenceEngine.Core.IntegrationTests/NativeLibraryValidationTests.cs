@@ -90,21 +90,30 @@ namespace InferenceEngine.Core.IntegrationTests
         }
 
         [Fact]
-        public void LibOnnxRuntimeProvidersRocm_Exists()
+        public void LibOnnxRuntimeProvidersMIGraphX_Exists()
         {
-            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_rocm.so");
+            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_migraphx.so");
             Assert.True(File.Exists(path), $"Missing: {path}");
+
+            var sharedPath = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_shared.so");
+            Assert.True(File.Exists(sharedPath), $"Missing: {sharedPath}");
         }
 
         [Fact]
-        public void BothLibs_AreNonEmpty()
+        public void RequiredLibs_AreNonEmpty()
         {
             var dir = GetNativeLibsDir();
-            foreach (var name in new[] { "libonnxruntime.so", "libonnxruntime_providers_rocm.so" })
+            var thresholds = new (string name, long minBytes)[]
+            {
+                ("libonnxruntime.so", 1_000_000),
+                ("libonnxruntime_providers_migraphx.so", 100_000),
+                ("libonnxruntime_providers_shared.so", 10_000),   // thin shim when EPs are split out
+            };
+            foreach (var (name, minBytes) in thresholds)
             {
                 var info = new FileInfo(Path.Combine(dir, name));
-                Assert.True(info.Exists && info.Length > 1_000_000,
-                    $"{name}: expected > 1 MB, got {info.Length} bytes");
+                Assert.True(info.Exists && info.Length > minBytes,
+                    $"{name}: expected > {minBytes} bytes, got {info.Length} bytes");
             }
         }
 
@@ -125,10 +134,10 @@ namespace InferenceEngine.Core.IntegrationTests
 
         [Fact]
         [Trait("Category", "LinuxOnly")]
-        public void LibOnnxRuntimeProvidersRocm_IsElf64()
+        public void LibOnnxRuntimeProvidersMIGraphX_IsElf64()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
-            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_rocm.so");
+            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_migraphx.so");
             var output = RunCommand("file", path);
             Assert.Contains("ELF 64-bit", output);
             Assert.Contains("shared object", output);
@@ -150,17 +159,19 @@ namespace InferenceEngine.Core.IntegrationTests
 
         [Fact]
         [Trait("Category", "LinuxOnly")]
-        public void LibOnnxRuntimeProvidersRocm_ExportsRocmProvider()
+        public void LibOnnxRuntimeProvidersMIGraphX_ExportsMIGraphXProvider()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
-            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_rocm.so");
+            var path = Path.Combine(GetNativeLibsDir(), "libonnxruntime_providers_migraphx.so");
             var output = RunCommand("nm", $"-D --defined-only {path}");
-            // Any of these symbols confirms the ROCm EP is present
+            // Any of these symbols confirms the MIGraphX EP is present.
+            // ORT EP plugin interface exports GetProvider as the entry point.
             Assert.True(
-                output.Contains("OrtSessionOptionsAppendExecutionProvider_ROCm") ||
+                output.Contains("OrtSessionOptionsAppendExecutionProvider_MIGraphX") ||
                 output.Contains("GetApi") ||
-                output.Contains("rocm"),
-                $"Expected ROCm EP symbols not found in nm output. First 500 chars:\n{output[..Math.Min(500, output.Length)]}");
+                output.Contains("migraphx") ||
+                output.Contains("GetProvider"),
+                $"Expected MIGraphX EP symbols not found in nm output. First 500 chars:\n{output[..Math.Min(500, output.Length)]}");
         }
 
         // -----------------------------------------------------------------
@@ -209,9 +220,9 @@ namespace InferenceEngine.Core.IntegrationTests
 
         [Fact]
         [Trait("Category", "LinuxOnly")]
-        public void InferenceSession_WithRocmEP_ThrowsCleanExceptionNotCrash()
+        public void InferenceSession_WithMIGraphXEP_ThrowsCleanExceptionNotCrash()
         {
-            // On a runner with no AMD GPU, requesting ROCm EP should throw a managed
+            // On a runner with no AMD GPU, requesting MIGraphX EP should throw a managed
             // OrtException (provider not available) — NOT a SIGABRT or native crash.
             // This proves the .so loads and its registration path is sane.
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
@@ -220,13 +231,9 @@ namespace InferenceEngine.Core.IntegrationTests
             try
             {
                 using var opts = new SessionOptions();
-                var rocmOptions = new System.Collections.Generic.Dictionary<string, string>
-                {
-                    { "device_id", "0" }
-                };
-                opts.AppendExecutionProvider("ROCmExecutionProvider", rocmOptions);
+                opts.AppendExecutionProvider_MIGraphX(0);
                 using var session = new InferenceSession(ModelPath, opts);
-                // If we reach here, ROCm is actually available — also a pass
+                // If we reach here, MIGraphX is actually available — also a pass
             }
             catch (OnnxRuntimeException)
             {
