@@ -130,7 +130,9 @@ if [ ! -d "$EIGEN_SRC_DIR/.git" ]; then
     git clone https://github.com/eigen-mirror/eigen.git "$EIGEN_SRC_DIR"
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
-    git -C "$EIGEN_SRC_DIR" fetch origin
+    if ! git -C "$EIGEN_SRC_DIR" cat-file -e "$EIGEN_COMMIT" 2>/dev/null; then
+        git -C "$EIGEN_SRC_DIR" fetch origin
+    fi
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 fi
 ./build.sh \
