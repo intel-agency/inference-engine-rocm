@@ -117,10 +117,15 @@ echo ">>> [5/5] Starting Compilation (This takes 30-60 mins)..."
 EIGEN_SRC_DIR="/code/external_build_work/eigen-src"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
 
-if [ -d "$EIGEN_SRC_DIR/.git" ]; then
-    CURRENT_REMOTE=$(git -C "$EIGEN_SRC_DIR" config --get remote.origin.url 2>/dev/null || true)
-    if [[ "$CURRENT_REMOTE" != *"github.com/eigen-mirror/eigen"* ]]; then
-        echo ">>> Remote mismatch (found $CURRENT_REMOTE), recreating Eigen directory..."
+if [ -d "$EIGEN_SRC_DIR" ]; then
+    if [ -d "$EIGEN_SRC_DIR/.git" ]; then
+        CURRENT_REMOTE=$(git -C "$EIGEN_SRC_DIR" config --get remote.origin.url 2>/dev/null || true)
+        if [[ "$CURRENT_REMOTE" != *"github.com/eigen-mirror/eigen"* ]]; then
+            echo ">>> Remote mismatch (found $CURRENT_REMOTE), recreating Eigen directory..."
+            rm -rf "$EIGEN_SRC_DIR"
+        fi
+    else
+        echo ">>> Leftover non-git directory found, recreating..."
         rm -rf "$EIGEN_SRC_DIR"
     fi
 fi

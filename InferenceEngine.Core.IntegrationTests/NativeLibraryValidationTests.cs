@@ -100,7 +100,7 @@ namespace InferenceEngine.Core.IntegrationTests
         }
 
         [Fact]
-        public void BothLibs_AreNonEmpty()
+        public void RequiredLibs_AreNonEmpty()
         {
             var dir = GetNativeLibsDir();
             var thresholds = new (string name, long minBytes)[]
