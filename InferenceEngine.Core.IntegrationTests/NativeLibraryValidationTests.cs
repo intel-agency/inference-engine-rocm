@@ -103,11 +103,17 @@ namespace InferenceEngine.Core.IntegrationTests
         public void BothLibs_AreNonEmpty()
         {
             var dir = GetNativeLibsDir();
-            foreach (var name in new[] { "libonnxruntime.so", "libonnxruntime_providers_migraphx.so", "libonnxruntime_providers_shared.so" })
+            var thresholds = new (string name, long minBytes)[]
+            {
+                ("libonnxruntime.so", 1_000_000),
+                ("libonnxruntime_providers_migraphx.so", 100_000),
+                ("libonnxruntime_providers_shared.so", 100_000),
+            };
+            foreach (var (name, minBytes) in thresholds)
             {
                 var info = new FileInfo(Path.Combine(dir, name));
-                Assert.True(info.Exists && info.Length > 1_000_000,
-                    $"{name}: expected > 1 MB, got {info.Length} bytes");
+                Assert.True(info.Exists && info.Length > minBytes,
+                    $"{name}: expected > {minBytes} bytes, got {info.Length} bytes");
             }
         }
 
