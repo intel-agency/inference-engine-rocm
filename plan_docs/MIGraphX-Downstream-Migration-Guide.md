@@ -13,7 +13,7 @@ The `InferenceEngine.ROCm.Runtime.linux-x64` native NuGet package has been migra
 | EP type | `ROCmExecutionProvider` | `MIGraphXExecutionProvider` |
 | Provider .so | `libonnxruntime_providers_rocm.so` | `libonnxruntime_providers_migraphx.so` |
 | Build flag | `--use_rocm` | `--use_migraphx` |
-| .NET typed API | `OrtROCMProviderOptions` + `AppendExecutionProvider_ROCm()` | None (use generic string API) |
+| .NET typed API | `OrtROCMProviderOptions` + `AppendExecutionProvider_ROCm()` | `AppendExecutionProvider_MIGraphX(int)` or generic string API |
 
 The downstream project `inference-engine-lib` currently pins the old package at `1.19.2-dev.28` and uses the typed ROCm EP API. This document specifies every change required to consume the new `1.24.1-dev.32` (or later) package.
 
@@ -53,7 +53,7 @@ Also update the comment block at lines 89-99 to reflect that the version is now 
 **File:** `InferenceEngine.Core/BaseInferenceEngine.cs`  
 **Lines:** 289-308 (the entire Linux x64 ROCm try/catch block)
 
-The typed API `OrtROCMProviderOptions` and `AppendExecutionProvider_ROCm()` do not exist for the MIGraphX EP. Replace with the generic string-based `AppendExecutionProvider()` API.
+The typed API `OrtROCMProviderOptions` and `AppendExecutionProvider_ROCm()` are specific to the deprecated ROCm EP and do not apply to MIGraphX. For MIGraphX, ORT 1.24.1 provides `AppendExecutionProvider_MIGraphX(int deviceId)`. Alternatively, the generic string-based `AppendExecutionProvider("MIGraphXExecutionProvider", optionsDictionary)` works but may throw `NotSupportedException` before reaching native code if the provider string is not recognized by the managed layer. The typed API is preferred for tests to ensure the native loading path is exercised.
 
 ```csharp
 // BEFORE (lines 289-308)
