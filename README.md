@@ -104,4 +104,4 @@ opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string,
 
 ## License
 
-[AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0.html) — Copyright 2026 Artificial Intelligence Agency.
+[MIT](https://opensource.org/license/mit) — Copyright 2026 Artificial Intelligence Agency.

@@ -76,7 +76,7 @@ uv run pytest          # run the test suite
 - Package target framework: `netstandard2.0` (native-only, broadest compatibility)
 - Integration tests target: `net10.0`
 - `requires-python = ">=3.14"` (for Python tooling)
-- License: AGPL-3.0-or-later
+- License: MIT
 - Branching: `development` → `staging` → `release` (continuous release on push to `release`)
 - Versioning: `{VERSION_PREFIX}-{suffix}.{run_number}` (SemVer 2.0, `VERSION_PREFIX` tracks ORT source version)
 - Python dependencies are declared in `pyproject.toml` only

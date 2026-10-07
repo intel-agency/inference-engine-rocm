@@ -1,0 +1,45 @@
+THIRD-PARTY NOTICES
+===================
+
+This package redistributes pre-built binaries compiled from the third-party
+projects listed below. The binaries are not modified from their upstream
+sources. Build provenance — build scripts, Docker image, and CI workflow —
+is available in this package's source repository:
+https://github.com/intel-agency/inference-engine-rocm
+
+Each project remains under the terms of its own license, as referenced below.
+This file summarizes the licenses and does not modify them.
+
+
+1. ONNX Runtime
+---------------
+Copyright (c) Microsoft Corporation
+License: MIT
+License text: https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+Files: libonnxruntime.so
+
+
+2. Eigen
+--------
+License: Mozilla Public License 2.0 (MPL-2.0)
+License text: https://gitlab.com/libeigen/eigen/-/blob/master/COPYING
+Eigen is a header-only library; its headers are consumed at build time of the
+libraries above and are not redistributed in this package.
+
+
+3. AMD MIGraphX Execution Provider for ONNX Runtime
+---------------------------------------------------
+Copyright (c) Advanced Micro Devices, Inc.
+License: MIT
+License text: https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/LICENSE
+Files: libonnxruntime_providers_migraphx.so
+
+
+4. AMD ROCm component libraries
+-------------------------------
+Copyright (c) Advanced Micro Devices, Inc.
+License: MIT and Apache-2.0, per component
+License texts: https://rocm.docs.amd.com/legal/index.html
+Files: libamdhip64.so (HIP runtime) and related ROCm component libraries.
+Complete license texts for the individual ROCm components are published at
+the URL above and in the ROCm source distributions.
