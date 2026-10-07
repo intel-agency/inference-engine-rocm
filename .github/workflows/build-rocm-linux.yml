@@ -185,6 +185,7 @@ jobs:
       - name: Run Tier-1 validation tests
         env:
           NATIVE_LIBS_DIR: ${{ github.workspace }}/native-libs
+          EXPECTED_ORT_VERSION: "1.24.1"  # Must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (couplet invariant)
         run: |
           dotnet test InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
             --configuration Release \
