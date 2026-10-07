@@ -99,6 +99,9 @@ MigrationBackup/
 *.swo
 *~
 
+# Agent/tooling state
+.dirac-cache/
+
 # OS
 .DS_Store
 Thumbs.db
