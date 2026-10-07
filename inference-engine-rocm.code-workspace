@@ -5,6 +5,6 @@
 		}
 	],
 	"settings": {
-		"dotnet.defaultSolution": "inference-engine-rocm.sln"
+		"dotnet.defaultSolution": "inference-engine-rocm.slnx"
 	}
 }
