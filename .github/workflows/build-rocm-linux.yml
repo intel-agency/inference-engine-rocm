@@ -227,9 +227,19 @@ jobs:
     environment: release
     permissions:
       contents: write
-      packages: write
 
     steps:
+      # Fail before creating any public tag/release if the secret is missing —
+      # otherwise a bad run would publish a release with no nuget.org package.
+      - name: Verify required secrets
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY secret is not configured"
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

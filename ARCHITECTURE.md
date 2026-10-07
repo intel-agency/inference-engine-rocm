@@ -92,7 +92,7 @@ Version is computed from the branch name and a repository variable:
 Native libraries are compiled with debug info (`-g` via `--cmake_extra_defines CMAKE_C_FLAGS_RELEASE` / `CMAKE_CXX_FLAGS_RELEASE` in `scripts/compile_onnx_rocm_docker.sh`). The CI pipeline then splits the DWARF data from each binary before packing:
 
 1. **Split** — `objcopy --only-keep-debug` extracts the DWARF sections into `debuginfo/<lib>-<BuildID>.debug` files, uploaded to the GitHub Release as separate assets.
-2. **Strip** — the `.so` files that go into the NuGet package are stripped with `objcopy --strip-debug`: DWARF is removed, but `.symtab` is kept so backtraces still symbolicate. (Never `--strip-all` — that would break symbolication and the symbol-export validation tests.)
+2. **Strip** — the `.so` files that go into the NuGet package are stripped with `objcopy --strip-debug`: DWARF is removed, but `.symtab` is kept so backtraces symbolicate. (Never `--strip-all` — that removes `.symtab` and breaks backtrace symbolication.)
 3. **Checksums** — every released asset (`.so`, `.debug`, `.nupkg`) is covered by `SHA256SUMS.txt`.
 
 To debug a shipped binary, find its Build ID, download the matching `.debug` asset from the release, and load it:
@@ -102,9 +102,11 @@ To debug a shipped binary, find its Build ID, download the matching `.debug` ass
 readelf -n libonnxruntime.so
 #   Build ID: 1a2b3c4d5e...
 
-# 2a. Load explicitly in gdb
+# 2a. Load explicitly in gdb (when inspecting the library standalone)
 gdb ./libonnxruntime.so
 (gdb) symbol-file /path/to/libonnxruntime.so-1a2b3c4d5e.debug
+# (For a live process with the library loaded, prefer 2b — symbol-file
+#  there would replace the main executable's symbols.)
 
 # 2b. Or install it where debuggers auto-discover it (first 2 hex chars
 #     as the subdirectory, the rest as the filename + .debug suffix):
