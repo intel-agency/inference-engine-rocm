@@ -130,7 +130,7 @@ The `create-release` job additionally runs behind the `release` GitHub environme
 
 ### Host requirements
 
-The ROCm/MIGraphX dependencies live in `libonnxruntime_providers_migraphx.so` (its `DT_NEEDED` entries require `libmigraphx_c.so.3` and `libamdhip64.so.7`, readelf-verified); the core `libonnxruntime.so` has no hard ROCm dependency. Consumers therefore need **ROCm 7.x userspace with the MIGraphX runtime** plus the `amdgpu`/KFD kernel driver for GPU execution; verified GPU targets are `gfx1030`/`gfx1031` (RDNA2) and `gfx1100`/`gfx1101`/`gfx1102` (RDNA3). Without a GPU or ROCm the package still loads and runs CPU-only. Full details and the eager-dlopen deployment rule in the README's *Host requirements* section.
+The ROCm/MIGraphX dependencies live in `libonnxruntime_providers_migraphx.so` (its `DT_NEEDED` entries require `libmigraphx_c.so.3` and `libamdhip64.so.7`, readelf-verified); the core `libonnxruntime.so` has no hard ROCm dependency. Consumers therefore need **ROCm 7.x userspace with the MIGraphX runtime** plus the `amdgpu`/KFD kernel driver for GPU execution; verified GPU targets are `gfx1030`/`gfx1031` (RDNA2) and `gfx1100`/`gfx1101`/`gfx1102` (RDNA3). Without a GPU or ROCm the package still loads and runs CPU-only. Full details in the README's *Host requirements* section.
 
 ### Standalone (any .NET project)
 

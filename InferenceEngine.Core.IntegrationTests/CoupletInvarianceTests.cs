@@ -12,8 +12,8 @@ namespace InferenceEngine.Core.IntegrationTests
     /// Tier 1 couplet-invariance tests — run on any Linux runner (no GPU required).
     /// Guard the ORT + ROCm couplet contract: the managed Microsoft.ML.OnnxRuntime
     /// reference and the native build must move together (see
-    /// plan_docs/Multi-Version-Branching-Strategy.md). These tests never dlopen the
-    /// MIGraphX provider .so — it is inspected on disk only (eager-dlopen hazard).
+    /// plan_docs/Multi-Version-Branching-Strategy.md). These tests never load the
+    /// MIGraphX provider .so — it is inspected on disk only.
     /// </summary>
     public class CoupletInvarianceTests
     {
@@ -88,8 +88,8 @@ namespace InferenceEngine.Core.IntegrationTests
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
 
             // Reach the provider .so via NATIVE_LIBS_DIR discovery — NEVER copy it into
-            // the test output dir (hard ROCm/MIGraphX deps absent on runners; ORT
-            // scanning the app dir would eagerly dlopen it and SIGABRT the test host).
+            // the test output dir. The on-disk checks never load it, keeping the suite
+            // independent of the host's ROCm state.
             var path = Path.Combine(NativeLibraryValidationTests.GetNativeLibsDir(),
                 "libonnxruntime_providers_migraphx.so");
             Assert.True(File.Exists(path), $"Missing: {path}");

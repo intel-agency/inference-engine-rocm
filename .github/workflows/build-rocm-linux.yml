@@ -175,10 +175,10 @@ jobs:
           cp native-libs/libonnxruntime.so "$OUTPUT_DIR/libonnxruntime.so"
           cp native-libs/libonnxruntime_providers_shared.so "$OUTPUT_DIR/libonnxruntime_providers_shared.so"
           # NOTE: do NOT copy libonnxruntime_providers_migraphx.so into the output dir.
-          # It has hard ROCm/MIGraphX deps (libmigraphx, libamdhip64, etc.) that are absent
-          # on the CI runner. ORT scans the app dir for provider plugins at startup — placing
-          # the MIGraphX .so there triggers an eager dlopen that SIGABRT's the test host.
-          # The file/nm tests reach it via NATIVE_LIBS_DIR without loading it.
+          # The on-disk tests (structure/symbols/SONAME) reach it via NATIVE_LIBS_DIR
+          # without loading it, keeping the suite independent of host ROCm state.
+          # (Its presence in an app dir is harmless — ORT 1.24.x loads providers only
+          # when the EP is requested — but the suite never needs it loaded.)
           echo "Native libs injected:"
           ls -lh "$OUTPUT_DIR/onnxruntime.dll" "$OUTPUT_DIR/libonnxruntime.so"
 

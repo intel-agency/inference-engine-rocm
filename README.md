@@ -2,7 +2,7 @@
 
 Pre-built ONNX Runtime native libraries for Linux x64 with the MIGraphX Execution Provider — AMD GPU inference for .NET, without compiling ONNX Runtime from source.
 
-[![CI](https://github.com/intel-agency/inference-engine-rocm/actions/workflows/build-rocm-linux.yml/badge.svg)](https://github.com/intel-agency/inference-engine-rocm/actions/workflows/build-rocm-linux.yml)
+[![CI](https://github.com/intel-agency/inference-engine-rocm/actions/workflows/build-rocm-linux.yml/badge.svg?query=branch%3Arelease)](https://github.com/intel-agency/inference-engine-rocm/actions/workflows/build-rocm-linux.yml?query=branch%3Arelease)
 [![NuGet version](https://img.shields.io/nuget/v/InferenceEngine.ROCm.Runtime.linux-x64)](https://www.nuget.org/packages/InferenceEngine.ROCm.Runtime.linux-x64)
 [![NuGet downloads](https://img.shields.io/nuget/dt/InferenceEngine.ROCm.Runtime.linux-x64)](https://www.nuget.org/packages/InferenceEngine.ROCm.Runtime.linux-x64)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -49,7 +49,7 @@ using var session = new InferenceSession("model.onnx", options);
 Mechanics worth knowing:
 
 - The managed package has no ROCm dependency. Its 1.24.1 API documents `AppendExecutionProvider_MIGraphX(int)` with *"Use only if you have the onnxruntime package specific to this Execution Provider"* — that provider-specific package is this one.
-- On a host without the ROCm/MIGraphX runtime, requesting the EP fails with a managed `OnnxRuntimeException` at session creation — a clean exception, never a native crash (Tier-1 asserts this; see [Validation strategy](#validation-strategy)). Omit the EP call and the same native library loads and runs CPU-only.
+- On a host without the ROCm/MIGraphX runtime, requesting the EP throws a managed `OnnxRuntimeException` from the `AppendExecutionProvider_MIGraphX` call itself — a clean exception, never a native crash (Tier-1 asserts this; see [Validation strategy](#validation-strategy)). Omit the EP call and the same native library loads and runs CPU-only.
 
 ## How it works
 
@@ -57,7 +57,7 @@ Mechanics worth knowing:
 
 `Microsoft.ML.OnnxRuntime` already ships a CPU-only `libonnxruntime.so` under its own `runtimes/linux-x64/native/`. When both packages are referenced, NuGet resolves both sets of native assets into the same `RuntimeCopyLocalItems` list, and the copy order between two packages is not a contract you can rely on — you could get either library on disk.
 
-[`buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets`](InferenceEngine.Core/buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets) removes the guesswork. It runs after `ResolvePackageAssets` (before files are copied to the output directory) and:
+[`buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets`](InferenceEngine.Core/buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets) makes the selection deterministic. It runs after `ResolvePackageAssets` (before files are copied to the output directory) and:
 
 1. Selects this package's native `linux-x64` assets from `RuntimeCopyLocalItems`.
 2. Removes every native `linux-x64` asset whose package id starts with `Microsoft.ML.OnnxRuntime` (the CPU library and its companions).
@@ -81,7 +81,7 @@ The package contains no managed code. The managed bindings already exist in `Mic
 
 The ROCm dependencies live in `libonnxruntime_providers_migraphx.so`, which is loaded only when the MIGraphX EP is requested. The core `libonnxruntime.so` has no hard ROCm dependency: without a GPU or ROCm, the package still loads and runs CPU-only.
 
-One deployment rule follows from the load mechanism (see [Validation strategy](#validation-strategy)): never place `libonnxruntime_providers_migraphx.so` inside an application directory on machines without ROCm — ORT's startup provider scan eagerly `dlopen`s provider libraries it finds there, and the missing dependencies abort the process (`SIGABRT`) before any session is created.
+The provider library is loaded only when the MIGraphX EP is requested; its mere presence in an application directory (which is where NuGet places it for every consumer) is harmless on machines without ROCm — requesting the EP there throws the clean managed exception described above.
 
 ## Couplet compatibility
 
@@ -106,11 +106,11 @@ The ROCm EP is deprecated upstream; MIGraphX EP is its successor. Consumers of t
 flowchart TD
     BR["build-rocm — compile ONNX Runtime v1.24.1 with the MIGraphX EP in the rocm/dev-ubuntu-22.04:7.2.1 container, then split debug info"] --> PN["pack-nuget — inject .so files into runtimes/linux-x64/native, dotnet pack, SLSA build-provenance attestation"]
     PN --> VN["validate-native — 13 Tier-1 tests on a GPU-less runner"]
-    VN --> GP["publish-github-packages — GitHub Packages, every branch"]
+    VN --> GP["publish-github-packages — GitHub Packages (every pipeline run)"]
     VN --> CR["create-release — release branch only: release environment approval gate, GitHub Release tagged on the exact commit, nuget.org push"]
 ```
 
-Details that make the build reproducible:
+Details that pin the build environment:
 
 - **Containerized toolchain.** The compile runs in `rocm/dev-ubuntu-22.04:7.2.1`, which pins `hipcc`, the MIGraphX dev headers, and the ROCm component libraries. `--skip_tests` compensates for the container having no GPU; code is generated for five targets via `CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100;gfx1101;gfx1102"`.
 - **Eigen is commit-pinned.** ORT v1.24.1's dependency list pins Eigen commit `1d8b82b0`, and the script pre-clones [`eigen-mirror/eigen`](https://github.com/eigen-mirror/eigen) at that exact commit, then points CMake at the checkout via `FETCHCONTENT_SOURCE_DIR_EIGEN`. This dodges the tarball-hash instability of the default FetchContent download path — a moved or regenerated tarball would otherwise fail the build on a hash mismatch.
@@ -124,7 +124,7 @@ Details that make the build reproducible:
 - **Behavioral** — `OrtEnv` initializes; an identity model loads and infers correctly on CPU (input 42 → output 42); requesting the MIGraphX EP on a GPU-less runner produces a managed `OnnxRuntimeException`, proving the failure path is a clean exception rather than `SIGABRT`.
 - **Couplet gates** — the loaded native ORT version must match `EXPECTED_ORT_VERSION` (injected by CI to match `ORT_TAG`; local runs fall back to the managed assembly version), and `readelf -d` must show `DT_NEEDED libmigraphx_c.so.3` in the provider — SONAME drift means the couplet's minimum host ROCm changed.
 
-The test layout is shaped by the eager-dlopen hazard described under [Host requirements](#host-requirements): the provider `.so` is never copied into the test output directory (where ORT's startup scan would load it); on-disk tests reach it through a `NATIVE_LIBS_DIR` path without loading it.
+The provider `.so` is deliberately kept out of the test output directory: the on-disk tests (structure, symbols, SONAME) reach it through a `NATIVE_LIBS_DIR` path without loading it, so the suite never depends on — or disturbs — the host's ROCm state. (Keeping it out of the app directory is conservatism, not necessity; see [Host requirements](#host-requirements).)
 
 **Tier-2** — validation on real AMD hardware, including CPU-vs-GPU tolerance checks — is planned; see [`plan_docs/Tier2-GPU-Validation-Plan.md`](plan_docs/Tier2-GPU-Validation-Plan.md).
 
@@ -138,7 +138,7 @@ gh attestation verify <file.nupkg> --repo intel-agency/inference-engine-rocm
 
 - **SLSA build provenance** — generated for every `.nupkg` in the pack job; verify with the command above.
 - **Checksums** — `SHA256SUMS.txt` covers every release asset (`.so`, `.debug`, `.nupkg`); run `sha256sum -c SHA256SUMS.txt` in the download directory.
-- **Signed tags on exact commits** — release tags are GPG-signed and created with `target_commitish` pinned to the release commit.
+- **Tags on exact commits** — release tags are created with `target_commitish` pinned to the release commit; the commits themselves are GPG-signed.
 - **nuspec commit pinning** — the package's `<repository>` metadata records the exact commit the binaries were built from.
 - **Split debug info** — DWARF is split per-Build-ID into `.debug` release assets; the shipped `.so` files are stripped of DWARF but keep `.symtab`, so backtraces still symbolicate. Debugging a shipped binary: match its `readelf -n` Build ID against the release assets (details in [ARCHITECTURE.md](ARCHITECTURE.md), section 4.4).
 - **Gated publish** — the `create-release` job runs behind the `release` GitHub environment (required reviewers) and fails fast if the NuGet API key is not configured.
@@ -147,13 +147,13 @@ gh attestation verify <file.nupkg> --repo intel-agency/inference-engine-rocm
 
 | Branch | Version format | Example |
 | :--- | :--- | :--- |
-| `development` | `{ORT_VERSION}-dev.{run_number}` | `1.24.1-dev.42` |
-| `staging` | `{ORT_VERSION}-rc.{run_number}` | `1.24.1-rc.58` |
-| `release` | `{ORT_VERSION}.{run_number}` | `1.24.1.71` |
+| `development` | `{VERSION_PREFIX}-dev.{run_number}` | `1.24.1-dev.42` |
+| `staging` | `{VERSION_PREFIX}-rc.{run_number}` | `1.24.1-rc.58` |
+| `release` | `{VERSION_PREFIX}.{run_number}` | `1.24.1.71` |
 
-- `ORT_VERSION` is the ONNX Runtime source version of the current couplet (a GitHub repository variable), so package versions state exactly which ORT they contain.
+- `VERSION_PREFIX` is the ONNX Runtime source version of the current couplet (a GitHub repository variable, currently `1.24.1`), so package versions state exactly which ORT they contain.
 - The run number is the monotonic GitHub Actions run number — every version is unique and traceable to a CI run.
-- Flow: `development` → `staging` → `release`, with a continuous publish on `release` (`development` → GitHub Packages only; `staging` adds `-rc` packages; `release` triggers the gated public publish). `master` mirrors the release line. Integration is merge-commit-only; commits and release tags are GPG-signed.
+- Flow: `development` → `staging` → `release`, with a continuous publish on `release` (`development` → GitHub Packages only; `staging` adds `-rc` packages; `release` triggers the gated public publish). `master` mirrors the release line. Integration is merge-commit-only; every commit is GPG-signed.
 
 ## Building from source
 

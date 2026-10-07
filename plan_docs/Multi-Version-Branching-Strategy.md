@@ -35,10 +35,10 @@ development → staging → release
 
 | Couplet ID | ORT Version | ROCm Version | Execution Provider | Status |
 |------------|-------------|--------------|-------------------|--------|
-| `v1-rocm` | 1.19.2 | 6.0.2 | ROCm EP | Current (legacy) |
-| `v2-migraphx` | 1.22.1 | 7.0 | ROCm EP (last) | Transitional |
-| `v3-migraphx` | 1.23.2 | 7.2.1 | MIGraphX | Target |
-| `v4-migraphx` | 1.26.0 | 7.2.4 | MIGraphX | Future |
+| `v1-rocm` | 1.19.2 | 6.0.2 | ROCm EP | Superseded |
+| `v2-migraphx` | 1.22.1 | 7.0 | ROCm EP (last) | Superseded |
+| `v3-migraphx` | 1.24.1 | 7.2.1 | MIGraphX | **Current** — shipped as 1.24.1.36 and the first public release |
+| `v4-migraphx` | 1.30.0 | 7.2.4 | MIGraphX | Next target (owner-approved 2026-10-07; same SONAME generation as v3) |
 
 ---
 
