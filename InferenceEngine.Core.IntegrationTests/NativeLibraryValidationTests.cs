@@ -54,7 +54,7 @@ namespace InferenceEngine.Core.IntegrationTests
             var dir = new DirectoryInfo(start);
             while (dir is not null)
             {
-                if (File.Exists(Path.Combine(dir.FullName, "inference-engine-rocm.sln")))
+                if (File.Exists(Path.Combine(dir.FullName, "inference-engine-rocm.slnx")))
                     return dir.FullName;
                 dir = dir.Parent;
             }

@@ -64,7 +64,7 @@ InferenceEngine.Core/                            # Package project (native-only,
 InferenceEngine.Core.IntegrationTests/           # Tier-1 validation (ELF, symbols, ORT loading)
 scripts/
   compile_onnx_rocm_docker.sh                    # Docker-based ROCm compilation
-inference-engine-rocm.sln                        # .NET solution
+inference-engine-rocm.slnx                       # .NET solution
 ```
 
 ## Versioning
