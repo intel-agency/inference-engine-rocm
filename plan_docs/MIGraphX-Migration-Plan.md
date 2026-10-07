@@ -5,16 +5,20 @@
 Migrate from the deprecated ROCm Execution Provider to AMD's recommended MIGraphX Execution Provider. This is a **breaking change** for consumers using the ROCm EP API directly, but provides a future-proof path aligned with AMD's roadmap.
 
 **Current State:**
+
 - ORT v1.19.2 + ROCm 6.0.2
 - Uses `--use_rocm` build flag
 - Produces `libonnxruntime_providers_rocm.so`
 - Consumers use `ROCmExecutionProvider` API
+- **Problem:** ABI mismatch with .NET managed bindings (ORT 1.24.1) causes SIGSEGV
 
 **Target State:**
-- ORT v1.23.2 + ROCm 7.2.1 (or 7.2.4)
+
+- ORT v1.24.1 + ROCm 7.2.1 (or 7.2.4)
 - Uses `--use_migraphx` build flag
 - Produces `libonnxruntime_providers_migraphx.so`
 - Consumers use `MIGraphXExecutionProvider` API
+- **Benefit:** ABI-matched with .NET managed bindings, supports opset 22+ models
 
 ---
 
@@ -25,9 +29,10 @@ Migrate from the deprecated ROCm Execution Provider to AMD's recommended MIGraph
 **File:** `scripts/compile_onnx_rocm_docker.sh`
 
 **Changes:**
+
 ```bash
 # Line 6: Update ORT tag
-ORT_TAG="v1.23.2"  # was v1.19.2
+ORT_TAG="v1.24.1"  # was v1.19.2
 
 # Line 121-133: Update build flags
 ./build.sh \
@@ -56,6 +61,7 @@ cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/  # 
 **File:** `.github/workflows/build-rocm-linux.yml`
 
 **Changes:**
+
 ```yaml
 # Line 38-43: Update Docker image
 - name: Compile Native ROCm Libs (Docker)
@@ -90,11 +96,13 @@ cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/  # 
 **Decision Point:** Should we rename the package to reflect MIGraphX?
 
 **Option A: Keep Current Package Name** (Recommended for continuity)
+
 - Package ID: `InferenceEngine.ROCm.Runtime.linux-x64` (unchanged)
 - Update comments to reflect MIGraphX
 - Consumers see no change in package reference
 
 **Option B: Rename to MIGraphX** (Cleaner but breaking)
+
 - Package ID: `InferenceEngine.MIGraphX.Runtime.linux-x64`
 - Requires consumer migration
 - Clearer about what's actually being used
@@ -102,6 +110,7 @@ cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/  # 
 **Recommendation:** Option A for now, with clear documentation that it uses MIGraphX internally.
 
 **Changes (Option A):**
+
 ```xml
 <!-- Update comments only -->
 <!--
@@ -128,6 +137,7 @@ cp build/Linux/Release/libonnxruntime_providers_migraphx.so /code/artifacts/  # 
 **File:** `InferenceEngine.Core.IntegrationTests/NativeLibraryValidationTests.cs`
 
 **Changes:**
+
 ```csharp
 // Line 93-97: Update library name check
 [Fact]
@@ -201,12 +211,13 @@ public void InferenceSession_WithMIGraphXEP_ThrowsCleanExceptionNotCrash()  // w
 **File:** `InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj`
 
 **Changes:**
+
 ```xml
 <!-- Line 22: Update ORT version to match build -->
-<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />  <!-- was 1.24.1 -->
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />  <!-- was 1.19.2 -->
 ```
 
-**Note:** We're using ORT 1.23.2 for the build, so tests should reference the same version for consistency.
+**Note:** We're using ORT 1.24.1 for the build, so tests should reference the same version for consistency.
 
 **Complexity:** LOW  
 **Risk:** LOW  
@@ -219,13 +230,15 @@ public void InferenceSession_WithMIGraphXEP_ThrowsCleanExceptionNotCrash()  // w
 ### 3.1 Update README.md
 
 **Changes:**
+
 - Update package description to mention MIGraphX
 - Add migration guide for consumers using ROCm EP API
 - Update version compatibility matrix
 - Clarify that this is the successor to ROCm EP
 
 **Key Sections to Add:**
-```markdown
+
+````markdown
 ## Migration from ROCm EP
 
 This package now uses AMD's MIGraphX Execution Provider (the official successor to ROCm EP).
@@ -238,6 +251,7 @@ opts.AppendExecutionProvider("ROCmExecutionProvider", new Dictionary<string, str
 ```
 
 **After (MIGraphX EP):**
+
 ```csharp
 opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string, string> { { "device_id", "0" } });
 ```
@@ -246,9 +260,10 @@ opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string,
 
 | Package Version | ORT Version | ROCm Version | Execution Provider |
 |----------------|-------------|--------------|-------------------|
-| 1.23.2.x       | 1.23.2      | 7.2.1        | MIGraphX          |
+| 1.24.1.x       | 1.24.1      | 7.2.1        | MIGraphX          |
 | 1.19.2.x       | 1.19.2      | 6.0.2        | ROCm (deprecated) |
-```
+
+````
 
 **Complexity:** LOW  
 **Risk:** LOW  
@@ -305,12 +320,14 @@ opts.AppendExecutionProvider("MIGraphXExecutionProvider", new Dictionary<string,
 ### 5.1 Local Build Validation
 
 **Steps:**
+
 1. Run Docker build locally with ROCm 7.2.1 image
 2. Verify both `.so` files are produced
 3. Check file sizes (should be > 100 MB each)
 4. Verify symbols with `nm -D`
 
 **Command:**
+
 ```bash
 docker run --rm -v "$(pwd)":/code -w /code rocm/dev-ubuntu-22.04:7.2.1 \
   /code/scripts/compile_onnx_rocm_docker.sh
@@ -327,11 +344,13 @@ nm -D artifacts/libonnxruntime_providers_migraphx.so | grep -i migraphx
 ### 5.2 Integration Test Validation
 
 **Steps:**
+
 1. Copy artifacts to `InferenceEngine.Core/runtimes/linux-x64/native/`
 2. Run `dotnet test` on integration tests
 3. Verify all tests pass
 
 **Command:**
+
 ```bash
 cp artifacts/*.so InferenceEngine.Core/runtimes/linux-x64/native/
 dotnet test InferenceEngine.Core.IntegrationTests/
@@ -344,6 +363,7 @@ dotnet test InferenceEngine.Core.IntegrationTests/
 ### 5.3 Consumer API Validation
 
 **Steps:**
+
 1. Create test consumer project
 2. Reference the package
 3. Test MIGraphX EP registration (will fail gracefully without GPU)
@@ -362,26 +382,33 @@ dotnet test InferenceEngine.Core.IntegrationTests/
 **Decision:** Should this be a major version bump?
 
 **Recommendation:** Yes, treat as breaking change
+
 - Current: `1.19.2.x`
-- New: `2.0.0.x` or `1.23.2.x` (if following ORT version)
+- New: `1.24.1.x` (following ORT version)
 
 **Rationale:**
+
 - Different execution provider (ROCm → MIGraphX)
 - Different API for consumers
 - Different underlying library names
+- ABI-matched with .NET managed bindings (ORT 1.24.1)
 
 ### 6.2 Release Notes
 
 **Key Points:**
+
 - **BREAKING:** Migrated from ROCm EP to MIGraphX EP
-- Updated ORT from 1.19.2 to 1.23.2
+- Updated ORT from 1.19.2 to 1.24.1
 - Updated ROCm from 6.0.2 to 7.2.1
 - Consumers must update API calls from `ROCmExecutionProvider` to `MIGraphXExecutionProvider`
 - Added support for newer GPU architectures (gfx1101, gfx1102)
+- Fixed ABI mismatch with .NET managed bindings (ORT 1.24.1)
+- Supports opset 22+ models (e.g., yolo11n.onnx)
 
 ### 6.3 Deprecation Notice
 
 **For Previous Version:**
+
 - Tag last ROCm EP version as deprecated on NuGet
 - Add deprecation notice to README
 - Point users to MIGraphX version
@@ -391,16 +418,19 @@ dotnet test InferenceEngine.Core.IntegrationTests/
 ## Risk Assessment
 
 ### High Risk
+
 - **Build Failure:** MIGraphX may have different dependencies or build requirements
   - **Mitigation:** Test build locally before CI changes
   - **Fallback:** Revert to ROCm EP if MIGraphX build fails
 
 ### Medium Risk
+
 - **Consumer Breaking Change:** API change may break downstream projects
   - **Mitigation:** Clear migration guide, deprecation notice
   - **Fallback:** Maintain both ROCm and MIGraphX packages temporarily
 
 ### Low Risk
+
 - **Test Failures:** Integration tests may need adjustment
   - **Mitigation:** Update tests incrementally
   - **Fallback:** Disable failing tests temporarily with TODO comments
@@ -438,6 +468,7 @@ dotnet test InferenceEngine.Core.IntegrationTests/
 ## Rollback Plan
 
 If migration fails:
+
 1. Revert all changes to build script and CI
 2. Tag current version as "last ROCm EP version"
 3. Create separate branch for MIGraphX experimentation
@@ -449,5 +480,5 @@ If migration fails:
 
 - [MIGraphX Execution Provider Documentation](https://onnxruntime.ai/docs/execution-providers/MIGraphX-ExecutionProvider.html)
 - [ROCm EP Deprecation Notice](https://onnxruntime.ai/docs/execution-providers/ROCm-ExecutionProvider.html)
-- [ORT 1.23.2 Release Notes](https://github.com/microsoft/onnxruntime/releases/tag/v1.23.2)
+- [ORT 1.24.1 Release Notes](https://github.com/microsoft/onnxruntime/releases/tag/v1.24.1)
 - [ROCm 7.2.1 Release Notes](https://github.com/ROCm/ROCm/releases/tag/rocm-7.2.1)
