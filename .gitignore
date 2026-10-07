@@ -32,6 +32,10 @@
 *.snupkg
 project.lock.json
 project.fragment.lock.json
+# Native .so binaries are injected by CI at pack time — never commit them.
+# (.gitkeep keeps the directory; see AGENTS.md "Build & Run Commands")
+InferenceEngine.Core/runtimes/linux-x64/native/*.so
+
 artifacts/
 **/Properties/launchSettings.json
 **/[Pp]ackages/*
