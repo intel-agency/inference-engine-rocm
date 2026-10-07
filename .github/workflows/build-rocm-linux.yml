@@ -46,6 +46,11 @@ jobs:
             rocm/dev-ubuntu-22.04:7.2.1 \
             /code/scripts/compile_onnx_rocm_docker.sh
 
+      # The container compiles as root, so bind-mounted artifacts land root-owned;
+      # the split/strip steps below rewrite them as the runner user.
+      - name: Take ownership of build artifacts
+        run: sudo chown -R "$(id -u):$(id -g)" artifacts
+
       - name: Split debug info and strip
         run: |
           mkdir -p debuginfo
