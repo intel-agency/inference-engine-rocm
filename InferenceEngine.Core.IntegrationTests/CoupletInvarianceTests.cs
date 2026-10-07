@@ -63,12 +63,7 @@ namespace InferenceEngine.Core.IntegrationTests
         private static string NormalizeVersion(string versionString)
         {
             var trimmed = versionString.Trim().TrimStart('v', 'V');
-            Version parsed;
-            try
-            {
-                parsed = Version.Parse(trimmed);
-            }
-            catch (FormatException)
+            if (!Version.TryParse(trimmed, out var parsed))
             {
                 Assert.Fail($"Cannot parse version string '{versionString}' (normalized input '{trimmed}').");
                 return string.Empty; // unreachable

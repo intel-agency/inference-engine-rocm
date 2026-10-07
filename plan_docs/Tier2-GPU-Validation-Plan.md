@@ -23,7 +23,8 @@ A Tier-2 pass is a release-blocking signal for the `release` branch once impleme
 
 | Item | Requirement | Notes |
 |---|---|---|
-| GPU | AMD gfx1030 (RDNA2, e.g. RX 6800/6900) **or** gfx1100 (RDNA3, e.g. RX 7900) | The two architectures the current build ships (`--amdgpu-targets`); one is sufficient, gfx1100 preferred || Host OS | Ubuntu 22.04 LTS | Matches the `rocm/dev-ubuntu-22.04:7.2.1` build container generation |
+| GPU | AMD gfx1030 (RDNA2, e.g. RX 6800/6900) **or** gfx1100 (RDNA3, e.g. RX 7900) | Both among the five architectures the current build ships (`CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100;gfx1101;gfx1102"` in `scripts/compile_onnx_rocm_docker.sh`); one is sufficient, gfx1100 preferred |
+| Host OS | Ubuntu 22.04 LTS | Matches the `rocm/dev-ubuntu-22.04:7.2.1` build container generation |
 | ROCm userspace | ROCm 7.x matched to the couplet, **including the MIGraphX runtime** (`migraphx`, `libmigraphx_c.so.3`) | The host provides the DT_NEEDED SONAMEs the provider links against; this is exactly what Tier-1's SONAME gate previews |
 | Runner software | `actions/runner` installed as a **systemd service** (`svc.sh install`), auto-start on boot | Unattended, survives reboots, journald logging |
 | Labels | `self-hosted,linux,x64,amd-gpu` | Workflows target `runs-on: [self-hosted, linux, x64, amd-gpu]` so generic self-hosted runners never pick the job up |
