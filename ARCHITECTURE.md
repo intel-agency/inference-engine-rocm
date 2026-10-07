@@ -71,7 +71,7 @@ The pipeline has 5 jobs:
 
 1. **build-rocm** — Runs the Docker script to generate `.so` files.
 2. **pack-nuget** — Injects `.so` files into `runtimes/linux-x64/native/` and runs `dotnet pack`.
-3. **validate-native** — Runs Tier-1 integration tests (ELF format, symbol exports, ORT loading).
+3. **validate-native** — Runs the 13 Tier-1 integration tests (ELF format, symbol exports, managed load, identity inference, clean-exception failure path, plus the couplet gates: `EXPECTED_ORT_VERSION` match and the `libmigraphx_c.so.3` SONAME check). No GPU required — see the README's *Validation strategy* section.
 4. **publish-github-packages** — Pushes to GitHub Packages (all branches).
 5. **create-release** — *(release branch only)* Creates GitHub Release with `.so` + `.nupkg` + checksums, publishes to NuGet.org.
 
@@ -128,6 +128,10 @@ The `create-release` job additionally runs behind the `release` GitHub environme
 
 ## 5. How Consumers Use It
 
+### Host requirements
+
+The ROCm/MIGraphX dependencies live in `libonnxruntime_providers_migraphx.so` (its `DT_NEEDED` entries require `libmigraphx_c.so.3` and `libamdhip64.so.7`, readelf-verified); the core `libonnxruntime.so` has no hard ROCm dependency. Consumers therefore need **ROCm 7.x userspace with the MIGraphX runtime** plus the `amdgpu`/KFD kernel driver for GPU execution; verified GPU targets are `gfx1030`/`gfx1031` (RDNA2) and `gfx1100`/`gfx1101`/`gfx1102` (RDNA3). Without a GPU or ROCm the package still loads and runs CPU-only. Full details and the eager-dlopen deployment rule in the README's *Host requirements* section.
+
 ### Standalone (any .NET project)
 
 ```xml
@@ -135,7 +139,7 @@ The `create-release` job additionally runs behind the `release` GitHub environme
 <PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="1.24.1" />
 ```
 
-The `buildTransitive` targets automatically replace the CPU-only native with the MIGraphX build at build time. No code changes needed — `OrtEnv.Instance()` and `InferenceSession` pick up the MIGraphX provider automatically on Linux with AMD GPU.
+The `buildTransitive` targets automatically replace the CPU-only native with the MIGraphX build at build time (mechanism in the README's *How it works* section). No code changes needed — `OrtEnv.Instance()` and `InferenceSession` pick up the MIGraphX provider automatically on Linux with AMD GPU.
 
 ### Via InferenceEngine.Core
 

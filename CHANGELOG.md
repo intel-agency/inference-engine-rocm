@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Split debug symbols: builds compile with `-g`, CI splits DWARF into per-Build-ID `.debug` files released as GitHub Release assets; shipped `.so` files are stripped of DWARF but keep `.symtab` (all assets covered by `SHA256SUMS.txt`)
 - Actions bumps (SHA-pinned): `actions/checkout` v7.0.1, `actions/setup-dotnet` v6.0.0, `softprops/action-gh-release` v3.0.3
 - Test dependency bumps: `Microsoft.NET.Test.Sdk` 17.12.0 → 18.10.1, `xunit.runner.visualstudio` 2.8.2 → 4.0.0 (`xunit` stays 2.9.3; `Microsoft.ML.OnnxRuntime` stays pinned to the couplet)
+- README rewritten for public readiness: native-gap framing, quick start (typed `AppendExecutionProvider_MIGraphX(0)` + string API), corrected host requirements (ROCm 7.x userspace with MIGraphX runtime — `libmigraphx_c.so.3` + `libamdhip64.so.7`, not "any ROCm 5.x+"), couplet compatibility table, build-pipeline diagram, validation and provenance sections
+- Repository metadata: GitHub description and topics populated (docs/metadata only — no package surface change)
 
 ## [1.24.1.36] - 2026-06-11
 
