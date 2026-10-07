@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - MIT-licensed package: `LICENSE` and `THIRD-PARTY-NOTICES.txt` ship inside the NuGet package
 - Community files: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, GitHub issue and pull-request templates
 - Planning documentation consolidated under `plan_docs/` (`.kilo/` planning notes migrated in)
+- Couplet-invariance gates in the Tier-1 validation suite: the loaded native OnnxRuntime version must match `EXPECTED_ORT_VERSION` (injected by CI, matching `ORT_TAG`; falls back to the managed assembly version locally), and `libonnxruntime_providers_migraphx.so` must declare DT_NEEDED `libmigraphx_c.so.3` (SONAME drift means the host-library requirement changed)
+- Tier-2 GPU validation plan (`plan_docs/Tier2-GPU-Validation-Plan.md`): self-hosted `amd-gpu` runner spec, `gpu-validation.yml` sketch, CPU-vs-GPU tolerance checks (implementation deferred to Phase 9)
 
 ### Changed
 
@@ -21,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SLSA build-provenance attestations generated for every `.nupkg` (verify with `gh attestation verify <file.nupkg> --repo intel-agency/inference-engine-rocm`)
 - Split debug symbols: builds compile with `-g`, CI splits DWARF into per-Build-ID `.debug` files released as GitHub Release assets; shipped `.so` files are stripped of DWARF but keep `.symtab` (all assets covered by `SHA256SUMS.txt`)
 - Actions bumps (SHA-pinned): `actions/checkout` v7.0.1, `actions/setup-dotnet` v6.0.0, `softprops/action-gh-release` v3.0.3
-- Expanded validation test suite *(in flight — later phases extend this entry)*
+- Test dependency bumps: `Microsoft.NET.Test.Sdk` 17.12.0 → 18.10.1, `xunit.runner.visualstudio` 2.8.2 → 4.0.0 (`xunit` stays 2.9.3; `Microsoft.ML.OnnxRuntime` stays pinned to the couplet)
 
 ## [1.24.1.36] - 2026-06-11
 
