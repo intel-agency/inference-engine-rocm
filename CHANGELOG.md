@@ -17,7 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Repository is now `.slnx`-only: legacy `inference-engine-rocm.sln` removed; the solution is `inference-engine-rocm.slnx`
-- CI hardening: build attestation and split debug symbols *(in flight — later phases extend this entry)*
+- CI/CD hardening: `create-release` now runs behind the `release` GitHub environment (approval gate) before publishing to NuGet.org; the publish step fails fast when the `NUGET_API_KEY` secret is missing; release tags are created on the exact release commit (`target_commitish`)
+- SLSA build-provenance attestations generated for every `.nupkg` (verify with `gh attestation verify <file.nupkg> --repo intel-agency/inference-engine-rocm`)
+- Split debug symbols: builds compile with `-g`, CI splits DWARF into per-Build-ID `.debug` files released as GitHub Release assets; shipped `.so` files are stripped of DWARF but keep `.symtab` (all assets covered by `SHA256SUMS.txt`)
+- Actions bumps (SHA-pinned): `actions/checkout` v7.0.1, `actions/setup-dotnet` v6.0.0, `softprops/action-gh-release` v3.0.3
 - Expanded validation test suite *(in flight — later phases extend this entry)*
 
 ## [1.24.1.36] - 2026-06-11
