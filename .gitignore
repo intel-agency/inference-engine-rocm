@@ -1,58 +1,7 @@
-tests/__pycache__/
-.coverage
-seda-dist-v1_3.seda
-__pycache__/
-SEDA-SmartPatch-upgrade.smartpatch.seda
-seda_dist_v0.9.1.commit.seda
-seda_web_upgrade.smartpatch-dist-v1_4.seda
-seda_vault_upgrade.smartpatch-dist-v1_5.seda
-.archive/
-
 # VS Code C# language server cache
 *.lscache
 
-# Python
-*.py[cod]
-*$py.class
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-eggs/
-.eggs/
-*.egg-link
-.installed.cfg
-MANIFEST
-*.pyc
-*.pyo
-*.pyd
-.python-version
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.nox/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.dmypy.json
-dmypy.json
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.venv/
-venv/
-ENV/
-env/
-.env
-.uv/
-
-# uv
-uv.lock
+.archive/
 
 # .NET
 [Bb]in/
@@ -83,6 +32,10 @@ uv.lock
 *.snupkg
 project.lock.json
 project.fragment.lock.json
+# Native .so binaries are injected by CI at pack time — never commit them.
+# (.gitkeep keeps the directory; see AGENTS.md "Build & Run Commands")
+InferenceEngine.Core/runtimes/linux-x64/native/*.so
+
 artifacts/
 **/Properties/launchSettings.json
 **/[Pp]ackages/*
