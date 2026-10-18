@@ -68,14 +68,14 @@ jobs:
         with:
           name: native-rocm-libs
           path: artifacts/*.so
-          retention-days: 5
+          retention-days: 2
 
       - name: Upload Debug Info
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-rocm-debuginfo
           path: debuginfo/*.debug
-          retention-days: 5
+          retention-days: 2
 
   pack-nuget:
     name: Pack NuGet with ROCm
@@ -314,3 +314,36 @@ jobs:
             --source "https://api.nuget.org/v3/index.json" \
             --api-key "$NUGET_API_KEY" \
             --skip-duplicate
+
+  cleanup-artifacts:
+    # Org Actions-artifact storage runs near its quota; the debug info alone is
+    # ~300 MB per run. Release assets (.so, .debug, .nupkg, SHA256SUMS) already
+    # live durably on the GitHub Release, so after a run completes its Actions
+    # artifacts are debugging conveniences only. Keep just the newest set:
+    # delete same-named artifacts belonging to OLDER runs (this run's own
+    # artifacts are excluded via workflow_run.id). Runs last, after every
+    # consumer (pack, validate, publish, create-release) has finished.
+    name: Prune superseded artifacts (keep latest set)
+    needs: [publish-github-packages, create-release]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete older same-named artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          for name in native-rocm-libs native-rocm-debuginfo nuget-package-rocm; do
+            ids=$(gh api --paginate "/repos/${{ github.repository }}/actions/artifacts?name=${name}" \
+              --jq ".artifacts[] | select(.workflow_run.id != ${{ github.run_id }}) | .id" || true)
+            for id in $ids; do
+              if gh api -X DELETE "/repos/${{ github.repository }}/actions/artifacts/${id}"; then
+                echo "deleted ${name} artifact ${id}"
+              else
+                echo "WARN: could not delete ${name} artifact ${id} (continuing)"
+              fi
+            done
+          done
