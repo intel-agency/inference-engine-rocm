@@ -24,7 +24,7 @@ namespace InferenceEngine.Core.IntegrationTests
         /// Locates the native library directory. Checks NATIVE_LIBS_DIR env var
         /// (set by CI), then falls back to runtimes/linux-x64/native/ beside the assembly.
         /// </summary>
-        private static string GetNativeLibsDir()
+        internal static string GetNativeLibsDir()
         {
             var fromEnv = Environment.GetEnvironmentVariable("NATIVE_LIBS_DIR");
             if (!string.IsNullOrEmpty(fromEnv) && Directory.Exists(fromEnv))
@@ -54,14 +54,14 @@ namespace InferenceEngine.Core.IntegrationTests
             var dir = new DirectoryInfo(start);
             while (dir is not null)
             {
-                if (File.Exists(Path.Combine(dir.FullName, "inference-engine-rocm.sln")))
+                if (File.Exists(Path.Combine(dir.FullName, "inference-engine-rocm.slnx")))
                     return dir.FullName;
                 dir = dir.Parent;
             }
             return null;
         }
 
-        private static string RunCommand(string executable, string args)
+        internal static string RunCommand(string executable, string args)
         {
             var psi = new ProcessStartInfo(executable, args)
             {

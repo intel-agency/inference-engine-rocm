@@ -135,6 +135,11 @@ elif [ "$(git -C "$EIGEN_SRC_DIR" rev-parse HEAD)" != "$EIGEN_COMMIT" ]; then
     fi
     git -C "$EIGEN_SRC_DIR" checkout "$EIGEN_COMMIT"
 fi
+# Compile with debug info (-g): the DWARF sections are split off on the CI
+# runner after the build (objcopy --only-keep-debug, see the "Split debug info
+# and strip" step in build-rocm-linux.yml) and shipped as separate .debug
+# release assets; the shipped .so files are --strip-debug'd but keep .symtab
+# so backtraces still symbolicate.
 ./build.sh \
     --config Release \
     --build_shared_lib \
@@ -146,7 +151,9 @@ fi
     --parallel \
     --allow_running_as_root \
     --cmake_extra_defines CMAKE_HIP_ARCHITECTURES="gfx1030;gfx1031;gfx1100;gfx1101;gfx1102" \
-    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR"
+    --cmake_extra_defines FETCHCONTENT_SOURCE_DIR_EIGEN="$EIGEN_SRC_DIR" \
+    --cmake_extra_defines CMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
+    --cmake_extra_defines CMAKE_C_FLAGS_RELEASE="-O3 -DNDEBUG -g"
 
 echo " SUCCESS! Copying artifacts..."
 mkdir -p /code/artifacts
