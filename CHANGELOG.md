@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - README rewritten for public readiness: native-gap framing, quick start (typed `AppendExecutionProvider_MIGraphX(0)` + string API), corrected host requirements (ROCm 7.x userspace with MIGraphX runtime — `libmigraphx_c.so.3` + `libamdhip64.so.7`, not "any ROCm 5.x+"), couplet compatibility table, build-pipeline diagram, validation and provenance sections
 - Repository metadata: GitHub description and topics populated (docs/metadata only — no package surface change)
 
+### Fixed
+
+- **Package installable by direct consumers.** `1.24.1.41` (and all internal predecessors) failed `dotnet add package` with "incompatible with all frameworks": no `lib/` placeholder existed, and the build-transitive targets never ran for direct references (NuGet imports `build/` for those). Fixed with the `lib/netstandard2.0/_._` placeholder, dual `build/` + `buildTransitive/` target packing, and an `onnxruntime.dll` pinvoke alias at the application directory (upstream's Linux pinvoke name never resolves `libonnxruntime.so`). A consumer-simulation gate now runs in CI against every packed nupkg.
+
 ## [1.24.1.36] - 2026-06-11
 
 First release on the MIGraphX Execution Provider.

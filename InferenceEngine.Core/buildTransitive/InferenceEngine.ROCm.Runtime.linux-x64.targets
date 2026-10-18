@@ -56,4 +56,55 @@
 
   </Target>
 
+  <!--
+    Consumer-side load fix (regression found testing 1.24.1.41):
+    Microsoft.ML.OnnxRuntime's managed bindings pinvoke "onnxruntime.dll" on ALL
+    platforms. On Linux, .NET's probe derives only onnxruntime.dll[.so] /
+    libonnxruntime.dll[.so] candidate names - never libonnxruntime.so - so a
+    vanilla consumer fails with DllNotFoundException unless a file NAMED
+    onnxruntime.dll sits in the application directory (this is also why the CI
+    validate job injects that alias).
+
+    We copy our three shipped libraries from the restored package directory
+    (via the Pkg<PackageId> property NuGet generates) straight to the output
+    root, plus the onnxruntime.dll pinvoke alias. Deterministic on every SDK:
+    RuntimeCopyLocalItems surgery (target above) is kept for SDKs that
+    populate it, but .NET 10 consumer builds leave it empty.
+  -->
+  <Target Name="EnsureRocmOrtDllImportAlias"
+          AfterTargets="Build"
+          Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+
+    <PropertyGroup>
+      <!-- libonnxruntime_providers_migraphx.so is unique to THIS package
+           (Microsoft.ML.OnnxRuntime never ships it), so its presence in the
+           output tree fingerprints our assets - and doubles as the
+           empty-package guard: a pack without .so files leaves this blank
+           and the whole target no-ops. Handles both layouts: RID-specific
+           builds flatten natives to the output root; portable builds keep
+           them under runtimes/linux-x64/native/. -->
+      <_RocmNativeDir Condition="Exists('$(OutDir)runtimes/linux-x64/native/libonnxruntime_providers_migraphx.so')">$(OutDir)runtimes/linux-x64/native/</_RocmNativeDir>
+      <_RocmNativeDir Condition="'$(_RocmNativeDir)' == '' And Exists('$(OutDir)libonnxruntime_providers_migraphx.so')">$(OutDir)</_RocmNativeDir>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(_RocmNativeDir)' != ''">
+      <_RocmShippedLibs Include="$(_RocmNativeDir)libonnxruntime.so" />
+      <_RocmShippedLibs Include="$(_RocmNativeDir)libonnxruntime_providers_shared.so" />
+      <_RocmShippedLibs Include="$(_RocmNativeDir)libonnxruntime_providers_migraphx.so" />
+    </ItemGroup>
+
+    <!-- Flatten to the application directory (ORT discovers providers next to the core lib) -->
+    <Copy SourceFiles="@(_RocmShippedLibs)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="'$(_RocmNativeDir)' != '' And '$(_RocmNativeDir)' != '$(OutDir)'" />
+
+    <!-- The pinvoke-name alias: onnxruntime.dll -> our ROCm/MIGraphX ELF -->
+    <Copy SourceFiles="$(_RocmNativeDir)libonnxruntime.so"
+          DestinationFiles="$(OutDir)onnxruntime.dll"
+          SkipUnchangedFiles="true"
+          Condition="'$(_RocmNativeDir)' != ''" />
+
+  </Target>
+
 </Project>
