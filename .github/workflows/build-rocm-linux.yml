@@ -148,6 +148,8 @@ jobs:
     name: Validate Native Libs
     needs: pack-nuget
     runs-on: ubuntu-latest
+    env:
+      EXPECTED_ORT_VERSION: "1.24.1"  # Must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (couplet invariant)
 
     steps:
       - name: Checkout repository
@@ -190,13 +192,47 @@ jobs:
       - name: Run Tier-1 validation tests
         env:
           NATIVE_LIBS_DIR: ${{ github.workspace }}/native-libs
-          EXPECTED_ORT_VERSION: "1.24.1"  # Must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (couplet invariant)
         run: |
           dotnet test InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
             --configuration Release \
             --runtime linux-x64 \
             --no-build \
             --logger "console;verbosity=normal"
+
+      # Regression gate for the 1.24.1.41 compat bug: the package must be
+      # consumable via a REAL NuGet restore (PackageReference), not just by
+      # CI-side artifact injection. Consumes the exact nupkg this run packed,
+      # from a local folder source, then loads it end-to-end.
+      - name: Download NuGet Package (consumer smoke)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nuget-package-rocm
+          path: ./nupkg-local
+
+      - name: Restore-compatibility smoke (consumer simulation)
+        run: |
+          set -e
+          NUPKG="$(ls nupkg-local/*.nupkg | head -1)"
+          VERSION="$(basename "$NUPKG" .nupkg | sed 's/^InferenceEngine\.ROCm\.Runtime\.linux-x64\.//')"
+          ORT_BASE="${EXPECTED_ORT_VERSION}"
+          echo "consumer-smoke: consuming $NUPKG (version $VERSION, couplet $ORT_BASE)"
+          mkdir -p consumer-smoke && cd consumer-smoke
+          dotnet new console --force -o . >/dev/null
+          dotnet add package InferenceEngine.ROCm.Runtime.linux-x64 \
+            --version "$VERSION" \
+            --source "$PWD/../nupkg-local" >/dev/null
+          dotnet add package Microsoft.ML.OnnxRuntime --version "$ORT_BASE" >/dev/null
+          cat > Program.cs <<PROG
+          using Microsoft.ML.OnnxRuntime;
+          var v = OrtEnv.Instance().GetVersionString();
+          Console.WriteLine(\$"consumer-smoke: native onnxruntime {v} loaded");
+          if (!v.StartsWith("$ORT_BASE")) { Console.WriteLine("consumer-smoke: FAIL version mismatch"); return 1; }
+          Console.WriteLine("consumer-smoke: PASS");
+          return 0;
+          PROG
+          dotnet run
+
+
 
   publish-github-packages:
     name: Publish to GitHub Packages
