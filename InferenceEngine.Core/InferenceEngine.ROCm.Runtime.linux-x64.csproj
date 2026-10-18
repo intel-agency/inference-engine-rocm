@@ -17,18 +17,19 @@
     <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU) using MIGraphX Execution Provider. Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm/MIGraphX without requiring consumers to compile from source.</Description>
     <PackageTags>onnxruntime;rocm;migraphx;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/intel-agency/inference-engine-rocm</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/intel-agency/inference-engine-rocm</PackageProjectUrl>
     <Title>ONNX Runtime ROCm Native Libraries for Linux x64</Title>
-    <Copyright>Copyright © 2026 Artificial Intelligence Agency. All rights reserved.</Copyright>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright © 2026 Artificial Intelligence Agency</Copyright>
   </PropertyGroup>
 
-  <!-- README packed into the NuGet package root -->
+  <!-- README, LICENSE, and third-party notices packed into the NuGet package root -->
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" />
+    <None Include="../LICENSE" Pack="true" PackagePath="\" />
+    <None Include="../THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <!-- Native .so files for linux-x64 runtime -->
