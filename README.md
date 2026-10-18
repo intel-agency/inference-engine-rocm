@@ -53,21 +53,25 @@ Mechanics worth knowing:
 
 ## How it works
 
-### Native asset precedence
+### Install compatibility and the pinvoke alias
 
-`Microsoft.ML.OnnxRuntime` already ships a CPU-only `libonnxruntime.so` under its own `runtimes/linux-x64/native/`. When both packages are referenced, NuGet resolves both sets of native assets into the same `RuntimeCopyLocalItems` list, and the copy order between two packages is not a contract you can rely on — you could get either library on disk.
+Two mechanics make the package consumable by a plain `dotnet add package` + `dotnet run` on Linux (verified by a consumer-simulation gate in CI):
 
-[`buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets`](InferenceEngine.Core/buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets) makes the selection deterministic. It runs after `ResolvePackageAssets` (before files are copied to the output directory) and:
+1. **`lib/netstandard2.0/_._`** — an empty placeholder file. The package ships no managed assembly, and without a lib asset NuGet rejects it outright (`incompatible with all frameworks`). The placeholder is Microsoft's documented pattern for native-only packages and makes it installable into any .NET project.
+2. **`onnxruntime.dll` pinvoke alias** — `Microsoft.ML.OnnxRuntime`'s managed bindings pinvoke the name `onnxruntime.dll` on *every* platform. On Linux, .NET's loader only derives `onnxruntime.dll`/`libonnxruntime.dll` candidate names from that — never `libonnxruntime.so` — so a vanilla Linux consumer dies with `DllNotFoundException` (this affects the upstream package by itself, too). Our MSBuild targets ([shipped in both `build/` and `buildTransitive/`](InferenceEngine.Core/buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets) — NuGet runs the former for direct references, the latter for transitive ones) detect our libraries in the build output and place them at the application directory, including a copy of the core library **named `onnxruntime.dll`** so the pinvoke resolves — to the ROCm/MIGraphX build, not Microsoft's CPU ELF.
 
-1. Selects this package's native `linux-x64` assets from `RuntimeCopyLocalItems`.
-2. Removes every native `linux-x64` asset whose package id starts with `Microsoft.ML.OnnxRuntime` (the CPU library and its companions).
-3. Re-adds this package's assets (remove-then-add, so no duplicates).
+### Native asset selection
 
-An **empty-package guard** wraps all of this: steps 2–3 only run when this package actually contributed `linux-x64` native assets. A package built without the `.so` files (for example, a local `dotnet pack` with no ROCm build behind it) leaves the CPU library in place — the consumer ends up with a working CPU build rather than no native ONNX Runtime at all.
+`Microsoft.ML.OnnxRuntime` also ships a CPU-only `libonnxruntime.so` under `runtimes/linux-x64/native/`. The targets make the selection deterministic in two layers:
+
+- The application directory wins: the loader probes it first, and only our libraries (plus the alias) are placed there.
+- A legacy `RuntimeCopyLocalItems` pass (select ours → remove `Microsoft.ML.OnnxRuntime*` natives → re-add ours) covers SDKs that populate that item set.
+
+An **empty-package guard** fingerprints our assets by `libonnxruntime_providers_migraphx.so` — a file upstream never ships. A package built without the `.so` files (for example, a local `dotnet pack` with no ROCm build behind it) leaves everything untouched — the consumer keeps a working CPU build rather than no native ONNX Runtime at all.
 
 ### Why native-only, and netstandard2.0
 
-The package contains no managed code. The managed bindings already exist in `Microsoft.ML.OnnxRuntime`; shipping a second managed surface would fork an API that upstream owns and force consumers to keep two call layers in sync. The package carries exactly two things: `runtimes/linux-x64/native/*.so` and the `buildTransitive` targets. `netstandard2.0` is the broadest target framework for an MSBuild asset package — the assets and targets flow into any .NET (Core/Framework/5+) consumer.
+The package contains no managed code. The managed bindings already exist in `Microsoft.ML.OnnxRuntime`; shipping a second managed surface would fork an API that upstream owns and force consumers to keep two call layers in sync. `netstandard2.0` is the broadest target framework for an MSBuild asset package — the assets and targets flow into any .NET (Core/Framework/5+) consumer.
 
 ## Host requirements
 
