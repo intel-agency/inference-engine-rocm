@@ -21,13 +21,17 @@ There is **no official NuGet package** for the OnnxRuntime ROCm execution provid
 ### What inference-engine-rocm Solved
 
 This repo contains:
-1. A Dockerized compile script that builds ONNX Runtime v1.19.2 from source inside `rocm/dev-ubuntu-22.04:6.0.2`
+
+1. A Dockerized compile script that builds ONNX Runtime from source inside `rocm/dev-ubuntu-22.04` containers
+   - **Historical:** v1.19.2 + ROCm 6.0.2 (original ROCm EP)
+   - **Current:** v1.24.1 + ROCm 7.2.1 (MIGraphX EP — see MIGraphX-Migration-Plan.md)
 2. A GitHub Actions workflow that runs the compile (~58 min), packs the `.so` into a NuGet package, validates the result, and publishes to GitHub Packages
 3. Tier-1 integration tests that verify the `.so` files are valid ELF binaries with correct symbol exports
 
 ### What inference-engine-lib Needs
 
 The target repo already has:
+
 - `InferenceEngine.Core/` — The main library (identical source files)
 - `InferenceEngine.Tests/` — Unit tests
 - `InferenceEngine.Examples/` — FaceDetection example
@@ -36,6 +40,7 @@ The target repo already has:
 - `.github/actions/build-and-test/action.yml` — Composite action for build + test
 
 **It does NOT have:**
+
 - The ROCm compile script
 - The ROCm build workflow
 - Native `.so` bundling in the NuGet package
@@ -92,16 +97,21 @@ build-rocm (57 min) → pack-nuget (30 sec) → validate-native (1 min) → publ
 **Target:** `inference-engine-lib/InferenceEngine.Core.IntegrationTests/` (new directory)
 
 Files to copy:
+
 - `InferenceEngine.Core.IntegrationTests.csproj`
 - `NativeLibraryValidationTests.cs`
 - `Resources/identity.onnx` (65-byte minimal ONNX model)
 
 **Adaptations:**
+
 - The target repo uses `inference-engine-lib.slnx` (not `.sln`). Add the new project to the `.slnx`:
+
   ```xml
   <Project Path="InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj" />
   ```
+
 - The existing `build-and-test` composite action filters out integration tests on Linux/macOS with `--filter "FullyQualifiedName!~FaceDetectionEngineTests"`. Extend the filter to also exclude the native validation tests (those should only run in the ROCm workflow, not on every PR):
+
   ```
   --filter "FullyQualifiedName!~FaceDetectionEngineTests&FullyQualifiedName!~NativeLibraryValidationTests"
   ```
@@ -122,6 +132,7 @@ The target repo's `.csproj` is nearly identical to the rocm repo's but is **miss
 ```
 
 Also add `rocm` to the `<PackageTags>`:
+
 ```xml
 <PackageTags>onnx;onnxruntime;ai;inference;machine-learning;deep-learning;directml;gpu;agents;rocm</PackageTags>
 ```
@@ -131,6 +142,7 @@ Also add `rocm` to the `<PackageTags>`:
 ### 2.5 `.gitignore` Addition
 
 Add to `inference-engine-lib/.gitignore`:
+
 ```
 # ROCm native libs — injected by CI, not committed
 InferenceEngine.Core/runtimes/
@@ -187,12 +199,14 @@ The `publish-github-packages` job is already included in the workflow (runs afte
 - [ ] Confirm `publish-github-packages` job succeeds
 - [ ] Confirm package appears at `https://github.com/orgs/intel-agency/packages?repo_name=inference-engine-lib`
 - [ ] Consumers can reference it via:
+
   ```xml
   <!-- nuget.config -->
   <packageSources>
     <add key="intel-agency" value="https://nuget.pkg.github.com/intel-agency/index.json" />
   </packageSources>
   ```
+
   ```xml
   <!-- .csproj -->
   <PackageReference Include="InferenceEngine.Core" Version="1.0.0-rocm.*" />
@@ -203,19 +217,25 @@ The `publish-github-packages` job is already included in the workflow (runs afte
 ## 5. Known Constraints & Gotchas
 
 ### Build Time
+
 The ROCm compile job takes **~58 minutes** on `ubuntu-latest`. This is unavoidable — it's compiling ONNX Runtime from C++ source with the HIP compiler. The workflow uses `workflow_dispatch` so it can be triggered manually rather than on every push.
 
 ### Docker Image Pinning
-**Do not** update `rocm/dev-ubuntu-22.04:6.0.2` without testing. ROCm 7.x images break ORT v1.19.2's cmake configuration. If you need to update ORT version, the Docker image version will need to be re-validated.
+
+**Do not** update the ROCm Docker image version without testing. The current build uses `rocm/dev-ubuntu-22.04:7.2.1` with ORT v1.24.1 and the MIGraphX Execution Provider (see MIGraphX-Migration-Plan.md). Earlier builds used `rocm/dev-ubuntu-22.04:6.0.2` with ORT v1.19.2 and the now-deprecated ROCm EP. If you need to update the ORT version, the Docker image version will need to be re-validated.
 
 ### cmake Version
+
 Must be `>=3.26,<4.0`. cmake 4.x changed `cmake_minimum_required()` behavior, breaking every ORT dependency that uses an older minimum version.
 
 ### Disk Space
+
 The GitHub Actions runner needs ~40 GB free. The workflow's first step frees space by removing `/usr/share/dotnet`, `/opt/ghc`, and Docker images.
 
 ### No GPU in CI
+
 Standard GitHub Actions runners have no AMD GPU. The validation tests are designed for this:
+
 - ELF format checks, symbol export checks, and ORT session loading all work without a GPU
 - The ROCm EP load test expects a clean `OnnxRuntimeException` (not a SIGABRT/native crash) — proving the `.so` loads and registers itself correctly even without hardware
 
@@ -253,6 +273,7 @@ When inference-engine-rocm is added to the workspace, these files are available 
 | `inference-engine-rocm/InferenceEngine.Core/InferenceEngine.Core.csproj` | Reference `.csproj` with native asset inclusion |
 
 ### Successful CI Run Reference
+
 - **Run:** [24022362384](https://github.com/intel-agency/inference-engine-rocm/actions/runs/24022362384)
 - **Build ROCm:** 57m43s, `success`
 - **Pack NuGet:** 31s, `success`

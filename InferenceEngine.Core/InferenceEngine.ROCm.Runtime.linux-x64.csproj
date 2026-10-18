@@ -14,8 +14,8 @@
     <Version>1.0.0-dev</Version>
     <Authors>intel-agency</Authors>
     <Company>Artificial Intelligence Agency</Company>
-    <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU). Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm without requiring consumers to compile from source.</Description>
-    <PackageTags>onnxruntime;rocm;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
+    <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU) using MIGraphX Execution Provider. Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm/MIGraphX without requiring consumers to compile from source.</Description>
+    <PackageTags>onnxruntime;rocm;migraphx;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/intel-agency/inference-engine-rocm</RepositoryUrl>
