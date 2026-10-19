@@ -26,7 +26,6 @@
   </PropertyGroup>
 
   <!-- README, LICENSE, and third-party notices packed into the NuGet package root -->
-  <!-- README packed into the NuGet package root -->
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" />
     <None Include="../LICENSE" Pack="true" PackagePath="\" />
