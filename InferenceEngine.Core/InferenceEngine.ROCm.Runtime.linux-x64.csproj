@@ -14,21 +14,32 @@
     <Version>1.0.0-dev</Version>
     <Authors>intel-agency</Authors>
     <Company>Artificial Intelligence Agency</Company>
-    <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU). Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm without requiring consumers to compile from source.</Description>
-    <PackageTags>onnxruntime;rocm;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
+    <Description>ROCm-accelerated ONNX Runtime native libraries for Linux x64 (AMD GPU) using MIGraphX Execution Provider. Drop-in replacement for the CPU-only libonnxruntime.so shipped by Microsoft.ML.OnnxRuntime. Provides AMD GPU acceleration via ROCm/MIGraphX without requiring consumers to compile from source.</Description>
+    <PackageTags>onnxruntime;rocm;migraphx;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/intel-agency/inference-engine-rocm</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/intel-agency/inference-engine-rocm</PackageProjectUrl>
     <Title>ONNX Runtime ROCm Native Libraries for Linux x64</Title>
-    <Copyright>Copyright © 2026 Artificial Intelligence Agency. All rights reserved.</Copyright>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright © 2026 Artificial Intelligence Agency</Copyright>
   </PropertyGroup>
 
+  <!-- README, LICENSE, and third-party notices packed into the NuGet package root -->
   <!-- README packed into the NuGet package root -->
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" />
+    <None Include="../LICENSE" Pack="true" PackagePath="\" />
+    <None Include="../THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Compatibility placeholder (Microsoft's pattern for native-only packages):
+       an empty _._ under lib/netstandard2.0 makes NuGet treat this package as
+       compatible with any .NET project. Without it, restore fails with
+       "Package ... is incompatible with all frameworks" — the package ships
+       native assets + buildTransitive targets only, no managed assembly. -->
+  <ItemGroup>
+    <None Include="_._" Pack="true" PackagePath="lib/netstandard2.0/" />
   </ItemGroup>
 
   <!-- Native .so files for linux-x64 runtime -->
@@ -40,11 +51,18 @@
           Condition="Exists('runtimes/linux-x64/native/')" />
   </ItemGroup>
 
-  <!-- buildTransitive targets to override ORT CPU natives in consuming projects -->
+  <!-- buildTransitive targets to override ORT CPU natives in consuming projects.
+       Packed to BOTH build/ and buildTransitive/: NuGet runs build/ for DIRECT
+       references and buildTransitive/ only for transitive ones — without the
+       build/ copy, a direct `dotnet add package` consumer gets no asset
+       precedence and no onnxruntime.dll pinvoke alias at all. -->
   <ItemGroup>
     <None Include="buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets"
           Pack="true"
           PackagePath="buildTransitive/" />
+    <None Include="buildTransitive/InferenceEngine.ROCm.Runtime.linux-x64.targets"
+          Pack="true"
+          PackagePath="build/" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,52 @@
+THIRD-PARTY NOTICES
+===================
+
+This package redistributes pre-built binaries compiled from the third-party
+projects listed below. The binaries are not modified from their upstream
+sources. Build provenance — build scripts, Docker image, and CI workflow —
+is available in this package's source repository:
+https://github.com/intel-agency/inference-engine-rocm
+
+Each project remains under the terms of its own license, as referenced below.
+This file summarizes the licenses and does not modify them.
+
+
+1. ONNX Runtime
+---------------
+Copyright (c) Microsoft Corporation
+License: MIT
+License text: https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+Files: libonnxruntime.so, libonnxruntime_providers_shared.so
+
+
+2. Eigen
+--------
+License: Mozilla Public License 2.0 (MPL-2.0)
+License text: https://gitlab.com/libeigen/eigen/-/blob/master/COPYING
+Eigen is a header-only library; its headers are consumed at build time of the
+libraries above and are not redistributed in this package.
+
+
+3. MIGraphX Execution Provider and AMD MIGraphX
+-----------------------------------------------
+libonnxruntime_providers_migraphx.so is compiled from the MIGraphX
+execution-provider sources in ONNX Runtime (Copyright (c) Microsoft
+Corporation, MIT — see section 1) and dynamically links the AMD MIGraphX
+library at run time.
+
+AMD MIGraphX: Copyright (c) 2025 Advanced Micro Devices, Inc.
+License: MIT
+License text: https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/LICENSE
+MIGraphX is not redistributed in this package; it is loaded from the host
+system's ROCm installation.
+
+
+4. AMD ROCm component libraries (run-time dependencies)
+-------------------------------------------------------
+The libraries above dynamically link ROCm components at run time (e.g.
+libamdhip64.so, libmigraphx_c.so.3). These components are NOT redistributed
+in this package — they are provided by the ROCm installation on the host
+system. Their licenses vary per component (MIT for most; also Apache-2.0,
+NCSA, BSD-2-Clause, and GPL for specific components).
+Component license table:
+https://rocm.docs.amd.com/en/latest/about/license.html
