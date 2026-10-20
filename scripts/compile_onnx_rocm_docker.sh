@@ -3,7 +3,19 @@ set -e
 
 # === CONFIGURATION ===
 # We pin to v1.24.1 because 'main' is unstable and often breaks build flags
+#
+# Immutable upstream references (security finding MEDIUM-4):
+# - The build checks out ORT_COMMIT_SHA, not the movable v1.24.1 tag.
+#   v1.24.1 == 470ae16099a74fe05e31f2530489332c0525edb5 (resolved 2026-10-20 via
+#   `git ls-remote https://github.com/microsoft/onnxruntime refs/tags/v1.24.1^{}`);
+#   the checkout step below fails the build if the tag ever stops containing
+#   this SHA.
+# - The base image rocm/dev-ubuntu-22.04:7.2.1 is pinned by digest in
+#   .github/workflows/build-rocm-linux.yml (linux/amd64 manifest, resolved
+#   from Docker Hub on 2026-10-20):
+#   rocm/dev-ubuntu-22.04:7.2.1@sha256:42851dac319afce41cf993e25f95005b7f2cd0a0f6abd32ad8f25cd876ec56df
 ORT_TAG="v1.24.1"
+ORT_COMMIT_SHA="470ae16099a74fe05e31f2530489332c0525edb5"
 ROCM_HOME="/opt/rocm"
 
 echo ">>> [0/5] Installing git (not present in base ROCm image)..."
@@ -18,11 +30,23 @@ git config --global --add safe.directory /code
 mkdir -p /code/external_build_work
 cd /code/external_build_work
 
-echo ">>> [2/5] Checking out stable release $ORT_TAG..."
+echo ">>> [2/5] Checking out stable release $ORT_TAG @ $ORT_COMMIT_SHA..."
 if [ ! -d "onnxruntime" ]; then
-    git clone --recursive -b $ORT_TAG https://github.com/microsoft/onnxruntime.git
+    # Clone the default branch (which also fetches all tags), then check out the
+    # pinned commit. Never `clone -b $ORT_TAG` directly: tags are movable.
+    git clone --recursive https://github.com/microsoft/onnxruntime.git
 fi
 cd onnxruntime
+git checkout "$ORT_COMMIT_SHA"
+# Re-align submodules to the pinned commit (the clone checked out the default branch).
+git submodule update --init --recursive
+# Supply-chain guard: the pinned commit must still be contained in the v1.24.1
+# tag. If upstream moves the tag so it no longer contains this SHA (or deletes
+# it), fail loudly instead of building from a moved reference.
+if ! git merge-base --is-ancestor "$ORT_COMMIT_SHA" "refs/tags/$ORT_TAG"; then
+    echo "ERROR: pinned ORT commit $ORT_COMMIT_SHA is not contained in tag $ORT_TAG (upstream tag moved?)" >&2
+    exit 1
+fi
 
 echo ">>> [3/5] Installing Build Dependencies..."
 # The base image is barebones; we need cmake and python tools
