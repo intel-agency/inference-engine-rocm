@@ -35,10 +35,13 @@ jobs:
           persist-credentials: false
 
       # --- Language 1/2: actions (workflow files; no build step needed) ---
+      # security-extended suite = parity with the previous default setup
+      # (which ran query_suite "extended"; see security remediation plan D7).
       - name: Initialize CodeQL (actions)
         uses: github/codeql-action/init@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
         with:
           languages: actions
+          queries: security-extended
 
       - name: Perform CodeQL Analysis (actions)
         uses: github/codeql-action/analyze@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
@@ -48,6 +51,7 @@ jobs:
         uses: github/codeql-action/init@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
         with:
           languages: csharp
+          queries: security-extended
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
