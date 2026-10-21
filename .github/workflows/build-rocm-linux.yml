@@ -20,6 +20,10 @@ jobs:
   build-rocm:
     name: Build ROCm Native Libs
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -40,10 +44,12 @@ jobs:
         run: |
           mkdir -p artifacts
           # ROCm 7.2.1 with MIGraphX EP (ORT v1.24.1)
+          # Pinned by digest (linux/amd64 manifest, resolved from Docker Hub on
+          # 2026-10-20) so the base image cannot be silently replaced upstream.
           docker run --rm \
             -v ${{ github.workspace }}:/code \
             -w /code \
-            rocm/dev-ubuntu-22.04:7.2.1 \
+            rocm/dev-ubuntu-22.04:7.2.1@sha256:42851dac319afce41cf993e25f95005b7f2cd0a0f6abd32ad8f25cd876ec56df \
             /code/scripts/compile_onnx_rocm_docker.sh
 
       # The container compiles as root, so bind-mounted artifacts land root-owned;
@@ -62,6 +68,13 @@ jobs:
             objcopy --strip-debug "$so"
             echo "$name: BuildID $bid -> debuginfo/${name}-${bid}.debug"
           done
+
+      # Attest the final native libs and tie them to this workflow run; the
+      # provenance statements are published to the repository's attestations.
+      - name: Attest build provenance (native libs)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: artifacts/*.so
 
       - name: Upload Native Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
