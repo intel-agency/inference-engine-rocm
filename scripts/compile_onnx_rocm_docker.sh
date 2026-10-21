@@ -70,8 +70,46 @@ apt-get install -y \
 apt-get install -y rocthrust-dev 2>/dev/null || apt-get install -y rocthrust 2>/dev/null || true
 echo ">>> rocthrust check: $(ls /opt/rocm/include/thrust/count.h 2>/dev/null && echo FOUND || echo 'NOT FOUND - will fail at compile')"
 
-# Ensure cmake is up to date but below 4.0 (cmake 4.x breaks ORT dependency cmake_minimum_required)
-python3 -m pip install 'cmake>=3.26,<4.0' --upgrade
+# Ensure cmake is new enough but below 4.0 (cmake 4.x breaks the
+# cmake_minimum_required calls in ORT's bundled dependencies: ORT v1.24.1
+# needs >= 3.28 per cmake/CMakeLists.txt at the pinned ORT commit, while
+# Ubuntu 22.04 apt only provides cmake 3.22.1 — hence the PyPI wheel).
+#
+# (MED-1) Exact, hash-verified install: the old floating range
+# 'cmake>=3.26,<4.0' trusted whatever PyPI served at build time. Now the
+# version is pinned and pip verifies artifact sha256 digests via
+# --require-hashes before installing. Pinned artifacts are exactly what pip
+# resolves on this platform (linux x86_64, glibc >= 2.17 -> manylinux2014
+# wheel) plus the sdist as fallback:
+#   cmake 3.31.10 — newest release < 4.0 when pinned (resolved 2026-10-21)
+#   hashes from https://pypi.org/pypi/cmake/3.31.10/json (urls[].digests.sha256)
+# Refresh procedure:
+#   1. curl -s https://pypi.org/pypi/cmake/json -> pick the newest version < 4.0
+#   2. curl -s https://pypi.org/pypi/cmake/<version>/json -> copy the sha256 of
+#      the manylinux_2_17_x86_64 (manylinux2014) wheel and of the sdist
+#   3. Update the version and BOTH hashes in CMAKE_REQUIREMENTS below together
+#   4. Verify: python3 -m pip install --require-hashes --no-deps --dry-run \
+#        -r <requirements-file>
+CMAKE_REQUIREMENTS="/tmp/cmake-pinned.requirements"
+cat > "$CMAKE_REQUIREMENTS" <<'EOF'
+# MED-1: hash-pinned cmake; digest source https://pypi.org/pypi/cmake/3.31.10/json
+cmake==3.31.10 \
+    --hash=sha256:2f766bb46367e5e0559fa33184653754bce044583a06014dcaebf8e6dff8a1f1 \
+    --hash=sha256:ec3d14a0e72e401b3665034dc37901df17f0b4e9c5b163be6cfedfb93470ac0f
+EOF
+python3 -m pip install --require-hashes --no-deps -r "$CMAKE_REQUIREMENTS"
+
+# (LOW-1) Log the resolved toolchain state into the CI log for forensic
+# reproducibility of each build (what apt/pip actually installed).
+echo ">>> Resolved toolchain state (build inputs):"
+echo "--- dpkg: rocm / migraphx / hip packages ---"
+dpkg -l | grep -E 'rocm|migraphx|hip' || true
+echo "--- cmake ---"
+cmake --version
+echo "--- gcc ---"
+gcc --version
+echo "--- python packages (pip freeze) ---"
+python3 -m pip freeze
 
 echo ">>> [4/5] Configuring Environment..."
 # Force CMake to find the ROCm compiler
