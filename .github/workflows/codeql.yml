@@ -1,0 +1,68 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [development, staging, release, master]
+  pull_request:
+    branches: [development, staging, release, master]
+  schedule:
+    - cron: "0 4 * * 1" # weekly (Mondays 04:00 UTC)
+
+permissions:
+  contents: read
+
+jobs:
+  # Required status-check context must stay exactly "CodeQL" (repo ruleset),
+  # so this is a single job with no matrix (decision D7 — replaces CodeQL
+  # default setup; disabling default setup is handled separately by the lead).
+  # One init + analyze per language, run sequentially: actions first (no build
+  # needed), then csharp (manual build — the repo's only managed code is the
+  # integration-test project; the package itself is native-only).
+  CodeQL:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    env:
+      DOTNET_VERSION: "10.0.x"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # --- Language 1/2: actions (workflow files; no build step needed) ---
+      - name: Initialize CodeQL (actions)
+        uses: github/codeql-action/init@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
+        with:
+          languages: actions
+
+      - name: Perform CodeQL Analysis (actions)
+        uses: github/codeql-action/analyze@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
+
+      # --- Language 2/2: csharp (integration-test sources) ---
+      - name: Initialize CodeQL (csharp)
+        uses: github/codeql-action/init@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
+        with:
+          languages: csharp
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Manual build for csharp extraction (traced by the init above). The
+      # integration tests compile without any ROCm host libraries present.
+      - name: Build (csharp extraction)
+        run: |
+          dotnet build InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
+            --configuration Release
+
+      # Note: this analyze re-processes the actions database as well; its
+      # re-upload lands in the same /language:actions category and simply
+      # replaces the earlier upload (no duplicate alerts).
+      - name: Perform CodeQL Analysis (csharp)
+        uses: github/codeql-action/analyze@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
