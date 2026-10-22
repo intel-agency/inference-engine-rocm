@@ -1,11 +1,14 @@
 name: Trusted Publishing Verify
 
-# Dry-run of the nuget.org trusted-publishing OIDC exchange — proves the
-# nuget.org policy "intel-agency-InferenceEngine.ROCm.Runtime.linux-x64"
-# matches this repository WITHOUT pushing any package. Run manually:
-# Actions → Trusted Publishing Verify → Run workflow. A green run means
-# build-rocm-linux.yml's create-release job can obtain a short-lived push
-# key on demand (its classic-key fallback won't be needed).
+# NEGATIVE-TEST dry-run of the nuget.org trusted-publishing OIDC exchange.
+# The nuget.org policy binds workflow file "build-rocm-linux.yml" +
+# environment "release"; this workflow has a DIFFERENT file name, so a
+# correct policy configuration makes the exchange here FAIL (no key minted)
+# — proving the policy cannot be satisfied from outside the gated publish
+# path. The job still carries environment: release because the exchange
+# attempt itself can mint a key when a policy matches, and any mint must be
+# reviewer-gated like the real publish. Run manually:
+# Actions → Trusted Publishing Verify → Run workflow.
 
 on:
   workflow_dispatch:
@@ -17,10 +20,11 @@ jobs:
   verify:
     name: OIDC exchange dry-run (no push)
     runs-on: ubuntu-latest
+    environment: release
     timeout-minutes: 10
     steps:
       - name: NuGet login (OIDC → temp API key)
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         id: nuget-login
         with:
           user: intel-agent
