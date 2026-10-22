@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Tier-1.5 package-consumption suite (`InferenceEngine.Core.PackageTests`): restores the packed `.nupkg` from a local feed like a real consumer and verifies package content (native layout, build + buildTransitive targets, compatibility placeholder, legal files, nuspec metadata), native asset precedence (onnxruntime.dll alias is the ROCm ELF64, `libonnxruntime.so` byte-identical to the packaged artifact), couplet version, and end-to-end identity-model inference. Replaces the CI-only inline consumer smoke script; runs in the `validate-native` CI job
 - MIT-licensed package: `LICENSE` and `THIRD-PARTY-NOTICES.txt` ship inside the NuGet package
 - Community files: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, GitHub issue and pull-request templates
 - Planning documentation consolidated under `plan_docs/` (`.kilo/` planning notes migrated in)
