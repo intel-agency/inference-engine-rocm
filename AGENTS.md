@@ -59,6 +59,6 @@ dotnet pack InferenceEngine.Core/
 - Package target framework: `netstandard2.0` (native-only, broadest compatibility)
 - Integration tests target: `net10.0`
 - License: MIT (see `LICENSE` and `THIRD-PARTY-NOTICES.txt`, both packed into the NuGet package)
-- Branching: `development` → `staging` → `release` (continuous release on push to `release`); `master` mirrors the release line
+- Branching: `development` (default) → `staging` → `release` (continuous release on push to `release`). The old `master` mirror was retired 2026-10-22 (archive tag `archive/master-2026-10`); never recreate it
 - Versioning: `{VERSION_PREFIX}-{suffix}.{run_number}` (SemVer 2.0, `VERSION_PREFIX` tracks ORT source version)
 - Couplet versioning: each package release pins an **ORT + ROCm couplet** (e.g. ORT v1.24.1 + ROCm 7.2.1). See `plan_docs/Multi-Version-Branching-Strategy.md`
