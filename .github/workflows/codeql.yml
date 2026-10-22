@@ -1,0 +1,61 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [development, staging, release, master]
+  pull_request:
+    branches: [development, staging, release, master]
+  schedule:
+    - cron: "0 4 * * 1" # weekly (Mondays 04:00 UTC)
+
+permissions:
+  contents: read
+
+jobs:
+  # Required status-check context must stay exactly "CodeQL" (repo ruleset),
+  # so this is a single job with no matrix (decision D7 — replaces CodeQL
+  # default setup). Single init for BOTH languages, then the manual csharp
+  # build, then ONE analyze — GitHub rejects a second analyze/upload in the
+  # same job per tool/category, so per-language analyze steps are not allowed.
+  CodeQL:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    env:
+      DOTNET_VERSION: "10.0.x"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Single init for both languages. security-extended = parity with the
+      # previous default setup (query_suite "extended"). The actions database
+      # is complete at init (no build needed); csharp is traced through the
+      # manual build below.
+      - name: Initialize CodeQL (actions, csharp)
+        uses: github/codeql-action/init@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3
+        with:
+          languages: actions,csharp
+          queries: security-extended
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Manual build for csharp extraction (traced by the init above). The
+      # integration tests compile without any ROCm host libraries present.
+      - name: Build (csharp extraction)
+        run: |
+          dotnet build InferenceEngine.Core.IntegrationTests/InferenceEngine.Core.IntegrationTests.csproj \
+            --configuration Release
+
+      # Single analyze: uploads one SARIF per language with automatic
+      # categories (/language:actions, /language:csharp).
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@0fda7a646fd14a20daf520829ca1ae8847000819 # codeql-bundle-v2.27.3

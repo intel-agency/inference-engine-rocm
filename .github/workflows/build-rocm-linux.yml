@@ -13,6 +13,13 @@ on:
 permissions:
   contents: read
 
+# Serialize runs of this workflow on the same ref without cancelling in-flight
+# ones (INFO-2): overlapping runs previously raced the artifact-cleanup job
+# into deleting artifacts of runs that were still consuming them.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   DOTNET_VERSION: "10.0.x"
 
@@ -20,14 +27,19 @@ jobs:
   build-rocm:
     name: Build ROCm Native Libs
     runs-on: ubuntu-latest
+    timeout-minutes: 150
     permissions:
       id-token: write
       attestations: write
       contents: read
 
     steps:
+      # persist-credentials: false — the workspace is bind-mounted into a
+      # root-owned Docker container (LOW-4); nothing in this job uses git.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Free Disk Space
         run: |
@@ -41,13 +53,15 @@ jobs:
         run: chmod +x scripts/compile_onnx_rocm_docker.sh
 
       - name: Compile Native ROCm Libs (Docker)
+        env:
+          WORKSPACE: ${{ github.workspace }}
         run: |
           mkdir -p artifacts
           # ROCm 7.2.1 with MIGraphX EP (ORT v1.24.1)
           # Pinned by digest (linux/amd64 manifest, resolved from Docker Hub on
           # 2026-10-20) so the base image cannot be silently replaced upstream.
           docker run --rm \
-            -v ${{ github.workspace }}:/code \
+            -v "$WORKSPACE":/code \
             -w /code \
             rocm/dev-ubuntu-22.04:7.2.1@sha256:42851dac319afce41cf993e25f95005b7f2cd0a0f6abd32ad8f25cd876ec56df \
             /code/scripts/compile_onnx_rocm_docker.sh
@@ -77,31 +91,35 @@ jobs:
           subject-path: artifacts/*.so
 
       - name: Upload Native Artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-rocm-libs
           path: artifacts/*.so
-          retention-days: 5
+          retention-days: 2
 
       - name: Upload Debug Info
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-rocm-debuginfo
           path: debuginfo/*.debug
-          retention-days: 5
+          retention-days: 2
 
   pack-nuget:
     name: Pack NuGet with ROCm
     needs: build-rocm
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write
       attestations: write
       contents: read
 
     steps:
+      # persist-credentials: false (LOW-4) — this job only packs; no git usage.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -109,7 +127,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Download Native Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: native-rocm-libs
           path: temp_artifacts
@@ -125,25 +143,31 @@ jobs:
           ls -lh "$TARGET_DIR"
 
       - name: Compute Package Version
+        env:
+          VERSION_PREFIX: ${{ vars.VERSION_PREFIX }}
+          RUN_NUMBER: ${{ github.run_number }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          PREFIX="${{ vars.VERSION_PREFIX }}"
-          RUN="${{ github.run_number }}"
-          case "${{ github.ref_name }}" in
+          PREFIX="${VERSION_PREFIX}"
+          RUN="${RUN_NUMBER}"
+          case "${REF_NAME}" in
             development) VERSION="${PREFIX}-dev.${RUN}" ;;
             staging)     VERSION="${PREFIX}-rc.${RUN}" ;;
             release)     VERSION="${PREFIX}.${RUN}" ;;
             *)           VERSION="${PREFIX}-local.${RUN}" ;;
           esac
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Computed version: $VERSION"
 
       - name: Pack NuGet Package
+        env:
+          VERSION: ${{ env.VERSION }}
         run: |
-          echo "Packing version: ${{ env.VERSION }}"
+          echo "Packing version: ${VERSION}"
           dotnet pack InferenceEngine.Core/InferenceEngine.ROCm.Runtime.linux-x64.csproj \
             --configuration Release \
             --output ./nupkg \
-            -p:Version=${{ env.VERSION }}
+            -p:Version="${VERSION}"
 
       - name: Attest build provenance (SLSA)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -151,7 +175,7 @@ jobs:
           subject-path: ./nupkg/*.nupkg
 
       - name: Upload NuGet Package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nuget-package-rocm
           path: ./nupkg/*.nupkg
@@ -161,12 +185,16 @@ jobs:
     name: Validate Native Libs
     needs: pack-nuget
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       EXPECTED_ORT_VERSION: "1.24.1"  # Must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (couplet invariant)
 
     steps:
+      # persist-credentials: false (LOW-4) — tests only; no git usage.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -174,7 +202,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Download Native Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: native-rocm-libs
           path: native-libs
@@ -217,7 +245,7 @@ jobs:
       # CI-side artifact injection. Consumes the exact nupkg this run packed,
       # from a local folder source, then loads it end-to-end.
       - name: Download NuGet Package (consumer smoke)
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nuget-package-rocm
           path: ./nupkg-local
@@ -225,6 +253,9 @@ jobs:
       - name: Restore-compatibility smoke (consumer simulation)
         run: |
           set -e
+          # Exactly one .nupkg is expected here; ls|head also handles the
+          # (never observed) multi-match case deterministically.
+          # shellcheck disable=SC2012
           NUPKG="$(ls nupkg-local/*.nupkg | head -1)"
           VERSION="$(basename "$NUPKG" .nupkg | sed 's/^InferenceEngine\.ROCm\.Runtime\.linux-x64\.//')"
           ORT_BASE="${EXPECTED_ORT_VERSION}"
@@ -251,6 +282,7 @@ jobs:
     name: Publish to GitHub Packages
     needs: validate-native
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       packages: write
       contents: read
@@ -262,16 +294,18 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Download NuGet Package
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nuget-package-rocm
           path: ./nupkg
 
       - name: Publish to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dotnet nuget push "./nupkg/*.nupkg" \
             --source "https://nuget.pkg.github.com/intel-agency/index.json" \
-            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --api-key "$GITHUB_TOKEN" \
             --skip-duplicate
 
   create-release:
@@ -279,19 +313,41 @@ jobs:
     needs: validate-native
     if: github.ref_name == 'release'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: release
     permissions:
       contents: write
+      id-token: write  # GitHub OIDC — required for nuget.org trusted publishing
 
     steps:
-      # Fail before creating any public tag/release if the secret is missing —
-      # otherwise a bad run would publish a release with no nuget.org package.
-      - name: Verify required secrets
+      # nuget.org trusted publishing (keyless): exchange this job's GitHub OIDC
+      # token for a 1-hour API key, validated against the nuget.org policy
+      # "intel-agency-InferenceEngine.ROCm.Runtime.linux-x64"
+      # (owner intel-agency / repo inference-engine-rocm / workflow
+      # build-rocm-linux.yml / environment release — policy owner: intel-agent).
+      # Falls back to the classic NUGET_API_KEY secret if the exchange fails so
+      # a policy hiccup can never block a release; remove the fallback once
+      # trusted publishing has shipped a few releases.
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        id: nuget-login
+        continue-on-error: true
+        with:
+          user: intel-agent
+
+      - name: Resolve push key (OIDC, classic fallback)
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          OIDC_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          CLASSIC_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::error::NUGET_API_KEY secret is not configured"
+          if [ -n "$OIDC_KEY" ]; then
+            echo "Using nuget.org trusted publishing (OIDC short-lived key)"
+            echo "NUGET_PUSH_KEY=$OIDC_KEY" >> "$GITHUB_ENV"
+          elif [ -n "$CLASSIC_KEY" ]; then
+            echo "::warning::OIDC exchange failed — falling back to classic NUGET_API_KEY secret"
+            echo "NUGET_PUSH_KEY=$CLASSIC_KEY" >> "$GITHUB_ENV"
+          else
+            echo "::error::No push credential: OIDC exchange failed and NUGET_API_KEY secret is empty"
             exit 1
           fi
 
@@ -301,42 +357,55 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Download NuGet Package
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nuget-package-rocm
           path: ./nupkg
 
       - name: Download Native Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: native-rocm-libs
           path: ./native-libs
 
       - name: Download Debug Info
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: native-rocm-debuginfo
           path: ./debuginfo
 
       - name: Compute Release Version
+        env:
+          VERSION_PREFIX: ${{ vars.VERSION_PREFIX }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          PREFIX="${{ vars.VERSION_PREFIX }}"
-          RUN="${{ github.run_number }}"
+          PREFIX="${VERSION_PREFIX}"
+          RUN="${RUN_NUMBER}"
           VERSION="${PREFIX}.${RUN}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Generate checksums
         run: |
           # One checksum per released asset (bare filenames so `sha256sum -c`
           # works in a flat download dir): stripped .so, split-DWARF .debug, .nupkg
           cd native-libs
-          sha256sum *.so > SHA256SUMS.txt
+          sha256sum -- *.so > SHA256SUMS.txt
           cd ../debuginfo
-          sha256sum *.debug >> ../native-libs/SHA256SUMS.txt
+          sha256sum -- *.debug >> ../native-libs/SHA256SUMS.txt
           cd ../nupkg
-          sha256sum *.nupkg >> ../native-libs/SHA256SUMS.txt
+          sha256sum -- *.nupkg >> ../native-libs/SHA256SUMS.txt
           echo "=== SHA256SUMS ==="
           cat ../native-libs/SHA256SUMS.txt
+
+      # Releases in this repo are immutable: re-running this job for the same
+      # version (e.g. after fixing a failed push) cannot replace release assets.
+      # Deleting the release + tag IS allowed, so drop any stale one for this
+      # version and recreate from this run's artifacts (mirrors lib PR #39).
+      - name: Remove stale release for this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ env.VERSION }}
+        run: gh release delete "v$VERSION" --cleanup-tag --yes || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
@@ -352,14 +421,75 @@ jobs:
             nupkg/*.nupkg
 
       - name: Publish to NuGet.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::error::NUGET_API_KEY secret is not configured"
-            exit 1
-          fi
           dotnet nuget push "./nupkg/*.nupkg" \
             --source "https://api.nuget.org/v3/index.json" \
-            --api-key "$NUGET_API_KEY" \
+            --api-key "$NUGET_PUSH_KEY" \
             --skip-duplicate
+
+  cleanup-artifacts:
+    # Org Actions-artifact storage runs near its quota; the debug info alone is
+    # ~300 MB per run. Release assets (.so, .debug, .nupkg, SHA256SUMS) already
+    # live durably on the GitHub Release, so after a run completes its Actions
+    # artifacts are debugging conveniences only. Keep just the newest set.
+    #
+    # INFO-2 race fix: the old implementation deleted same-named artifacts from
+    # ALL other runs of this workflow — including in-flight and overlapping
+    # ones on other branches. Deletion is now scoped to artifacts of COMPLETED
+    # runs of this workflow on THIS branch that started more than 2 hours ago
+    # (this run and anything younger is untouched; the workflow-level
+    # concurrency group serializes same-branch runs as a second guard).
+    # Runs last, after every consumer (pack, validate, publish, create-release).
+    name: Prune superseded artifacts (keep latest set)
+    needs: [publish-github-packages, create-release]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete artifacts of older same-branch runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -eu
+          # Runs started before this timestamp (2h ago) are considered stale;
+          # anything younger may still be in flight and is never pruned.
+          CUTOFF="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          export CUTOFF
+          echo "pruning artifacts of completed runs on '${BRANCH}' started before ${CUTOFF}"
+          # Completed runs of this workflow on this branch, excluding this run
+          # and anything started within the last 2 hours. Env is read inside jq
+          # via $env so no value is interpolated into the query program.
+          stale_runs=""
+          # The jq program is deliberately single-quoted: $env is a jq builtin,
+          # not a shell expansion.
+          # shellcheck disable=SC2016
+          stale_runs="$(gh api --paginate --method GET \
+            "/repos/${REPOSITORY}/actions/workflows/build-rocm-linux.yml/runs" \
+            -f branch="${BRANCH}" -f status=completed -f per_page=100 \
+            --jq '.workflow_runs[]
+                  | select(.id != ($env.CURRENT_RUN_ID | tonumber))
+                  | select(.created_at < $env.CUTOFF)
+                  | .id')"
+          if [ -z "$stale_runs" ]; then
+            echo "no stale runs to prune"
+            exit 0
+          fi
+          for run_id in $stale_runs; do
+            for name in native-rocm-libs native-rocm-debuginfo nuget-package-rocm; do
+              ids="$(gh api "/repos/${REPOSITORY}/actions/runs/${run_id}/artifacts?name=${name}" \
+                --jq '.artifacts[].id' || true)"
+              for id in $ids; do
+                if gh api -X DELETE "/repos/${REPOSITORY}/actions/artifacts/${id}"; then
+                  echo "deleted ${name} artifact ${id} (run ${run_id})"
+                else
+                  echo "WARN: could not delete ${name} artifact ${id} (continuing)"
+                fi
+              done
+            done
+          done
