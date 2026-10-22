@@ -8,6 +8,7 @@ on:
       - "scripts/compile_onnx_rocm_docker.sh"
       - "InferenceEngine.Core/**"
       - "InferenceEngine.Core.IntegrationTests/**"
+      - "InferenceEngine.Core.PackageTests/**"
       - ".github/workflows/build-rocm-linux.yml"
 
 permissions:
@@ -242,15 +243,17 @@ jobs:
 
       # Regression gate for the 1.24.1.41 compat bug: the package must be
       # consumable via a REAL NuGet restore (PackageReference), not just by
-      # CI-side artifact injection. Consumes the exact nupkg this run packed,
-      # from a local folder source, then loads it end-to-end.
+      # CI-side artifact injection. The checked-in InferenceEngine.Core.PackageTests
+      # suite consumes the exact nupkg this run packed, from a local folder source:
+      # package-content checks, native asset precedence (ELF alias + SHA-256 vs the
+      # packaged .so), couplet version, and end-to-end identity-model inference.
       - name: Download NuGet Package (consumer smoke)
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nuget-package-rocm
           path: ./nupkg-local
 
-      - name: Restore-compatibility smoke (consumer simulation)
+      - name: Package-consumption smoke tests (real restore from local feed)
         run: |
           set -e
           # Exactly one .nupkg is expected here; ls|head also handles the
@@ -258,24 +261,13 @@ jobs:
           # shellcheck disable=SC2012
           NUPKG="$(ls nupkg-local/*.nupkg | head -1)"
           VERSION="$(basename "$NUPKG" .nupkg | sed 's/^InferenceEngine\.ROCm\.Runtime\.linux-x64\.//')"
-          ORT_BASE="${EXPECTED_ORT_VERSION}"
-          echo "consumer-smoke: consuming $NUPKG (version $VERSION, couplet $ORT_BASE)"
-          mkdir -p consumer-smoke && cd consumer-smoke
-          dotnet new console --force -o . >/dev/null
-          dotnet add package InferenceEngine.ROCm.Runtime.linux-x64 \
-            --version "$VERSION" \
-            --source "$PWD/../nupkg-local" >/dev/null
-          dotnet add package Microsoft.ML.OnnxRuntime --version "$ORT_BASE" >/dev/null
-          cat > Program.cs <<PROG
-          using Microsoft.ML.OnnxRuntime;
-          var v = OrtEnv.Instance().GetVersionString();
-          Console.WriteLine(\$"consumer-smoke: native onnxruntime {v} loaded");
-          if (!v.StartsWith("$ORT_BASE")) { Console.WriteLine("consumer-smoke: FAIL version mismatch"); return 1; }
-          Console.WriteLine("consumer-smoke: PASS");
-          return 0;
-          PROG
-          dotnet run
-
+          echo "package-smoke: consuming $NUPKG (version $VERSION)"
+          ROCM_NUPKG_PATH="$PWD/$NUPKG" \
+          dotnet test InferenceEngine.Core.PackageTests/InferenceEngine.Core.PackageTests.csproj \
+            --configuration Release \
+            -p:RocmPackageVersion="$VERSION" \
+            -p:RestoreSources="$PWD/nupkg-local;https://api.nuget.org/v3/index.json" \
+            --logger "console;verbosity=normal"
 
 
   publish-github-packages:

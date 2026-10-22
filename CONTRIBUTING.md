@@ -38,6 +38,7 @@ Each release pins a **couplet**: one ONNX Runtime source version plus one ROCm r
 ## Validation tiers
 
 - **Tier 1** (required): the structural validation suite in `InferenceEngine.Core.IntegrationTests` — ELF header/symbol checks on the native libraries, ORT API loading, identity-model inference, and MIGraphX EP failure-path verification. It runs in CI on every build; locally it needs the CI-built `.so` files present in `InferenceEngine.Core/runtimes/linux-x64/native/`.
+- **Tier 1.5** (required): the package-consumption suite in `InferenceEngine.Core.PackageTests` — restores the packed `.nupkg` from a local feed like a real consumer and verifies package content, native asset precedence over `Microsoft.ML.OnnxRuntime`, the `onnxruntime.dll` pinvoke alias, and end-to-end inference. It runs in CI right after packing; locally it needs a packed package first (see the `.csproj` header for the invocation). It is intentionally not in the solution because it cannot restore without an explicit local feed + version.
 - **Tier 2** (planned): GPU hardware validation on a real ROCm host — full inference runs against MIGraphX-compiled models.
 
 CI must be green before review, and reviews before merge. If your change affects the native build script, CI workflow, or packaging targets, call that out in the pull request — those areas are the most regression-prone.

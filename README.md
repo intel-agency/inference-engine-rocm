@@ -130,6 +130,14 @@ Details that pin the build environment:
 
 The provider `.so` is deliberately kept out of the test output directory: the on-disk tests (structure, symbols, SONAME) reach it through a `NATIVE_LIBS_DIR` path without loading it, so the suite never depends on — or disturbs — the host's ROCm state. (Keeping it out of the app directory is conservatism, not necessity; see [Host requirements](#host-requirements).)
 
+**Tier-1.5** ([`InferenceEngine.Core.PackageTests`](InferenceEngine.Core.PackageTests/), 9 tests) consumes the packed `.nupkg` the way a downstream user does — a real `PackageReference` restore from a local folder feed — and runs in the same CI job right after packing:
+
+- **Package content** — the `.nupkg` (inspected as a zip) contains the three native libraries under `runtimes/linux-x64/native/`, the targets in **both** `build/` and `buildTransitive/`, the `lib/netstandard2.0/_._` compatibility placeholder, the legal files, and correct nuspec metadata (id, CI-computed version, MIT license, git repository).
+- **Consumption contract** — in the consumer's own build output: all three `.so` files flattened to the app directory, the `onnxruntime.dll` pinvoke alias is our ELF64 image (not a Windows PE), and the `libonnxruntime.so` present is **byte-identical (SHA-256) to the packaged artifact** — proving our assets win over `Microsoft.ML.OnnxRuntime`'s CPU-only natives.
+- **End-to-end** — the loaded native ORT reports the couplet version, and an identity model infers correctly (42 → 42) through the exact restore/load path a user gets.
+
+Locally, the suite needs a packed package to exist first: `dotnet pack InferenceEngine.Core/ -o nupkg`, then see the header of its `.csproj` for the exact `dotnet test` invocation.
+
 **Tier-2** — validation on real AMD hardware, including CPU-vs-GPU tolerance checks — is planned; see [`plan_docs/Tier2-GPU-Validation-Plan.md`](plan_docs/Tier2-GPU-Validation-Plan.md).
 
 Every published `.nupkg` also carries a verifiable build attestation:
@@ -184,6 +192,7 @@ InferenceEngine.Core/                            # Package project (native-only,
   buildTransitive/                               # MSBuild targets for native asset precedence
   runtimes/linux-x64/native/                     # .so files (injected by CI)
 InferenceEngine.Core.IntegrationTests/           # 13 Tier-1 validation tests (no GPU required)
+InferenceEngine.Core.PackageTests/                # 9 Tier-1.5 package-consumption smoke tests (needs packed nupkg)
 scripts/compile_onnx_rocm_docker.sh              # Docker-based ROCm compilation
 .github/workflows/build-rocm-linux.yml           # 5-job build/pack/validate/publish/release pipeline
 plan_docs/                                       # Planning docs: couplet strategy, migration, validation
