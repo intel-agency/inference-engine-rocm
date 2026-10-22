@@ -59,3 +59,13 @@ MigrationBackup/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local/CI build staging: external build trees, split debug info, scratch
+# artifacts, and local package / smoke-test output
+external_build_work/
+debuginfo/
+temp_artifacts/
+nupkg-local/
+consumer-smoke/
+native-libs/
+nupkg/

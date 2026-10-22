@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  # Keep the SHA-pinned workflow actions current (build-rocm-linux, codeql, lint).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Keep the integration-test NuGet references current (the repo's only
+  # managed dependency surface; the package itself is native-only).
+  - package-ecosystem: nuget
+    directory: "/InferenceEngine.Core.IntegrationTests"
+    schedule:
+      interval: weekly
