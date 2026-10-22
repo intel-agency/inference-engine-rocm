@@ -12,6 +12,7 @@ InferenceEngine.Core/                            # Package project (native-only,
   buildTransitive/                               # MSBuild targets for native asset precedence
   runtimes/linux-x64/native/                     # .so files (injected by CI)
 InferenceEngine.Core.IntegrationTests/           # Tier-1 validation tests
+InferenceEngine.Core.PackageTests/                # Tier-1.5 package-consumption smoke tests (not in slnx; needs packed nupkg + local feed)
 scripts/
   compile_onnx_rocm_docker.sh                    # Docker-based ROCm compilation
 plan_docs/                                       # Planning docs, migration guides, execution logs
