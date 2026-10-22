@@ -460,21 +460,18 @@ jobs:
           # Runs started before this timestamp (2h ago) are considered stale;
           # anything younger may still be in flight and is never pruned.
           CUTOFF="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
-          export CUTOFF
           echo "pruning artifacts of completed runs on '${BRANCH}' started before ${CUTOFF}"
           # Completed runs of this workflow on this branch, excluding this run
-          # and anything started within the last 2 hours. Env is read inside jq
-          # via $env so no value is interpolated into the query program.
-          stale_runs=""
-          # The jq program is deliberately single-quoted: $env is a jq builtin,
-          # not a shell expansion.
-          # shellcheck disable=SC2016
+          # and anything started within the last 2 hours. Values are passed via
+          # --arg (not shell interpolation and not jq $env — the jq embedded in
+          # the runner's gh does not support the $env variable).
           stale_runs="$(gh api --paginate --method GET \
             "/repos/${REPOSITORY}/actions/workflows/build-rocm-linux.yml/runs" \
             -f branch="${BRANCH}" -f status=completed -f per_page=100 \
+            --arg cur "${CURRENT_RUN_ID}" --arg cutoff "${CUTOFF}" \
             --jq '.workflow_runs[]
-                  | select(.id != ($env.CURRENT_RUN_ID | tonumber))
-                  | select(.created_at < $env.CUTOFF)
+                  | select(.id != ($cur | tonumber))
+                  | select(.created_at < $cutoff)
                   | .id')"
           if [ -z "$stale_runs" ]; then
             echo "no stale runs to prune"
