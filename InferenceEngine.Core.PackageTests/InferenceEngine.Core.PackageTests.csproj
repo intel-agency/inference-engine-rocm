@@ -33,12 +33,6 @@
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
-  <!-- Fail fast with instructions instead of an opaque NU1101 when built bare -->
-  <Target Name="RequireLocalFeedConfiguration" BeforeTargets="Restore"
-          Condition="'$(RocmPackageVersion)' == ''">
-    <Error Text="InferenceEngine.Core.PackageTests consumes the packed ROCm nupkg from a local feed and needs an explicit version + feed. Example: dotnet test InferenceEngine.Core.PackageTests/ -p:RocmPackageVersion=1.0.0-dev -p:RestoreSources=&quot;$PWD/nupkg;https://api.nuget.org/v3/index.json&quot; (pack first: dotnet pack InferenceEngine.Core/ -o nupkg)" />
-  </Target>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -47,8 +41,14 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <!-- The package under test. Version comes from -p:RocmPackageVersion (CI passes
-         the exact version packed in this run). -->
-    <PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="$(RocmPackageVersion)" />
+         the exact version packed in this run). The reference is CONDITIONAL: a bare
+         `dotnet restore` (e.g. GitHub's automatic NuGet dependency-submission
+         workflow, which restores every csproj in the repo) then succeeds against
+         nuget.org alone; a wired run adds the local feed via -p:RestoreSources.
+         Building without the reference still fails the consumer tests at runtime
+         with a clear "cannot locate the packed nupkg" message. -->
+    <PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="$(RocmPackageVersion)"
+                      Condition="'$(RocmPackageVersion)' != ''" />
     <!-- Couple invariant: same direct ORT reference pattern as InferenceEngine.Core.IntegrationTests.
          Version must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (ORT_TAG=v1.24.1). -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />
