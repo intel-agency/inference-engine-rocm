@@ -465,6 +465,9 @@ jobs:
           # and anything started within the last 2 hours. Values are passed via
           # --arg (not shell interpolation and not jq $env — the jq embedded in
           # the runner's gh does not support the $env variable).
+          # The jq program is deliberately single-quoted: $cur/$cutoff are jq
+          # --arg variables, not shell expansions.
+          # shellcheck disable=SC2016
           stale_runs="$(gh api --paginate --method GET \
             "/repos/${REPOSITORY}/actions/workflows/build-rocm-linux.yml/runs" \
             -f branch="${BRANCH}" -f status=completed -f per_page=100 \
