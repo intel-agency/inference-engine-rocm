@@ -463,13 +463,16 @@ jobs:
           case "${CURRENT_RUN_ID}" in
             ''|*[!0-9]*) echo "CURRENT_RUN_ID is not numeric: ${CURRENT_RUN_ID}" >&2; exit 1 ;;
           esac
+          # Built as a plain variable: shellcheck cannot parse escaped
+          # double-quotes nested inside a multi-line $( ) expansion.
+          JQ_PROG=".workflow_runs[]
+                | select(.id != (${CURRENT_RUN_ID}))
+                | select(.created_at < \"${CUTOFF}\")
+                | .id"
           stale_runs="$(gh api --paginate --method GET \
             "/repos/${REPOSITORY}/actions/workflows/build-rocm-linux.yml/runs" \
             -f branch="${BRANCH}" -f status=completed -f per_page=100 \
-            --jq ".workflow_runs[]
-                  | select(.id != (${CURRENT_RUN_ID}))
-                  | select(.created_at < \"${CUTOFF}\")
-                  | .id')"
+            --jq "$JQ_PROG")"
           if [ -z "$stale_runs" ]; then
             echo "no stale runs to prune"
             exit 0
