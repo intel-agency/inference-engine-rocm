@@ -454,19 +454,21 @@ jobs:
           CUTOFF="$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
           echo "pruning artifacts of completed runs on '${BRANCH}' started before ${CUTOFF}"
           # Completed runs of this workflow on this branch, excluding this run
-          # and anything started within the last 2 hours. Values are passed via
-          # --arg (not shell interpolation and not jq $env — the jq embedded in
-          # the runner's gh does not support the $env variable).
-          # The jq program is deliberately single-quoted: $cur/$cutoff are jq
-          # --arg variables, not shell expansions.
-          # shellcheck disable=SC2016
+          # and anything started within the last 2 hours. Both values are
+          # interpolated into the jq program directly: gh api supports neither
+          # jq $env variables nor a --arg flag (each was tried and failed in
+          # CI). Safe because both values are runner-generated, not
+          # actor-controlled: CURRENT_RUN_ID is the numeric run id (guarded
+          # below) and CUTOFF comes from `date`.
+          case "${CURRENT_RUN_ID}" in
+            ''|*[!0-9]*) echo "CURRENT_RUN_ID is not numeric: ${CURRENT_RUN_ID}" >&2; exit 1 ;;
+          esac
           stale_runs="$(gh api --paginate --method GET \
             "/repos/${REPOSITORY}/actions/workflows/build-rocm-linux.yml/runs" \
             -f branch="${BRANCH}" -f status=completed -f per_page=100 \
-            --arg cur "${CURRENT_RUN_ID}" --arg cutoff "${CUTOFF}" \
-            --jq '.workflow_runs[]
-                  | select(.id != ($cur | tonumber))
-                  | select(.created_at < $cutoff)
+            --jq ".workflow_runs[]
+                  | select(.id != (${CURRENT_RUN_ID}))
+                  | select(.created_at < \"${CUTOFF}\")
                   | .id')"
           if [ -z "$stale_runs" ]; then
             echo "no stale runs to prune"
