@@ -96,14 +96,14 @@ jobs:
         with:
           name: native-rocm-libs
           path: artifacts/*.so
-          retention-days: 2
+          retention-days: 1
 
       - name: Upload Debug Info
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-rocm-debuginfo
           path: debuginfo/*.debug
-          retention-days: 2
+          retention-days: 1
 
   pack-nuget:
     name: Pack NuGet with ROCm
@@ -180,7 +180,7 @@ jobs:
         with:
           name: nuget-package-rocm
           path: ./nupkg/*.nupkg
-          retention-days: 30
+          retention-days: 7
 
   validate-native:
     name: Validate Native Libs
