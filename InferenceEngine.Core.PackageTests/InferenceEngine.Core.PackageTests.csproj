@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Package-consumption smoke suite ("Tier 1.5"): this project is a REAL consumer
+    of the packed InferenceEngine.ROCm.Runtime.linux-x64.nupkg. It restores the
+    package from a local folder feed, so it exercises the exact path a downstream
+    user hits: nuget restore, buildTransitive/build targets, native asset
+    precedence over Microsoft.ML.OnnxRuntime, the onnxruntime.dll pinvoke alias,
+    and end-to-end inference.
+
+    It is intentionally NOT in inference-engine-rocm.slnx: it cannot restore
+    without an explicit local feed + version, which only exist after
+    `dotnet pack`. Run it like this (locally or in CI):
+
+      dotnet pack InferenceEngine.Core/ -o nupkg
+      dotnet test InferenceEngine.Core.PackageTests/ -c Release \
+        -p:RocmPackageVersion=1.0.0-dev \
+        -p:RestoreSources="$PWD/nupkg;https://api.nuget.org/v3/index.json"
+
+    The nupkg under test is located via the ROCM_NUPKG_PATH env var, falling back
+    to a nupkg/ or nupkg-local/ directory beside the repo root. The ORT couplet
+    check uses EXPECTED_ORT_VERSION when set (CI), else the managed version.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Native ORT libs only ship for linux-x64; matches InferenceEngine.Core.IntegrationTests -->
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <UseRidGraph>true</UseRidGraph>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <!-- The package under test. Version comes from -p:RocmPackageVersion (CI passes
+         the exact version packed in this run). The reference is CONDITIONAL: a bare
+         `dotnet restore` (e.g. GitHub's automatic NuGet dependency-submission
+         workflow, which restores every csproj in the repo) then succeeds against
+         nuget.org alone; a wired run adds the local feed via -p:RestoreSources.
+         Building without the reference still fails the consumer tests at runtime
+         with a clear "cannot locate the packed nupkg" message. -->
+    <PackageReference Include="InferenceEngine.ROCm.Runtime.linux-x64" Version="$(RocmPackageVersion)"
+                      Condition="'$(RocmPackageVersion)' != ''" />
+    <!-- Couple invariant: same direct ORT reference pattern as InferenceEngine.Core.IntegrationTests.
+         Version must match ORT_TAG in scripts/compile_onnx_rocm_docker.sh (ORT_TAG=v1.24.1). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../InferenceEngine.Core.IntegrationTests/Resources/identity.onnx"
+          Link="Resources/identity.onnx"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

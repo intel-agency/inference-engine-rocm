@@ -8,8 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- **Supply-chain provenance disclosure:** versions `<= 1.24.1.44` were built from upstream inputs resolved by mutable tags (Docker `rocm/dev-ubuntu-22.04:7.2.1`, ORT tag `v1.24.1`). From `1.24.1.45` onward, builds are pinned by image digest and source commit and carry attestations for both the package and the native libraries. All released artifacts have been verified consistent with their CI builds (nuget.org inner content byte-identical to the GitHub release asset; `gh attestation verify` green; SHA256SUMS match).
+- Native-build supply chain pinned (HIGH-1): ORT cloned at commit `470ae160` (tag-contains-SHA guard), Docker base image digest-pinned, native-lib attestations in addition to the nupkg attestation — and the pins actually govern the publish line (`development` → `staging` → `release`)
+- Build script hardening (MED-1): PyPI `cmake` pinned by exact version + hashes (`--require-hashes`), apt/dpkg toolchain state logged for forensics
+- Workflow hardening (Group A): in-repo CodeQL advanced setup (all protected branches + PRs), actionlint gate, Dependabot, CODEOWNERS + required code-owner review, secrets/vars env-mapped out of `run:` blocks, `persist-credentials: false` on container-feeding checkouts, job timeouts, concurrency-serialized artifact pruning
+- nuget.org trusted publishing (OIDC) with classic-key fallback; the verify workflow is an environment-gated negative test (a green key-mint there would indicate policy misconfiguration)
+- Branch/tag governance: `release` environment requires reviewers with self-review blocked; `refs/tags/v*` protected against deletion and force-update; `master` mirror branch retired (signed archive tag `archive/master-2026-10`)
+
 ### Added
 
+- Tier-1.5 package-consumption suite (`InferenceEngine.Core.PackageTests`): restores the packed `.nupkg` from a local feed like a real consumer and verifies package content (native layout, build + buildTransitive targets, compatibility placeholder, legal files, nuspec metadata), native asset precedence (onnxruntime.dll alias is the ROCm ELF64, `libonnxruntime.so` byte-identical to the packaged artifact), couplet version, and end-to-end identity-model inference. Replaces the CI-only inline consumer smoke script; runs in the `validate-native` CI job
 - MIT-licensed package: `LICENSE` and `THIRD-PARTY-NOTICES.txt` ship inside the NuGet package
 - Community files: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, GitHub issue and pull-request templates
 - Planning documentation consolidated under `plan_docs/` (`.kilo/` planning notes migrated in)

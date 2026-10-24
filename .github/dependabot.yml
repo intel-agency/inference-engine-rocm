@@ -7,8 +7,11 @@ updates:
     schedule:
       interval: weekly
 
-  # Keep the integration-test NuGet references current (the repo's only
-  # managed dependency surface; the package itself is native-only).
+  # Keep the integration-test NuGet references current. The package itself
+  # is native-only. InferenceEngine.Core.PackageTests is deliberately NOT
+  # dependabot-managed: its Microsoft.ML.OnnxRuntime pin is part of the
+  # native/managed version-couplet invariant and moves only with a new
+  # native couplet build.
   - package-ecosystem: nuget
     directory: "/InferenceEngine.Core.IntegrationTests"
     schedule:
