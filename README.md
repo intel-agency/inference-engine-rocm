@@ -165,7 +165,7 @@ gh attestation verify <file.nupkg> --repo intel-agency/inference-engine-rocm
 
 - `VERSION_PREFIX` is the ONNX Runtime source version of the current couplet (a GitHub repository variable, currently `1.24.1`), so package versions state exactly which ORT they contain.
 - The run number is the monotonic GitHub Actions run number — every version is unique and traceable to a CI run.
-- Flow: `development` → `staging` → `release`, with a continuous publish on `release` (`development` → GitHub Packages only; `staging` adds `-rc` packages; `release` triggers the gated public publish). `master` mirrors the release line. Integration is merge-commit-only; every commit is GPG-signed.
+- Flow: `development` → `staging` → `release`, with a continuous publish on `release` (`development` → GitHub Packages only; `staging` adds `-rc` packages; `release` triggers the gated public publish). Integration is merge-commit-only; every commit is GPG-signed. The former `master` mirror branch was retired on 2026-10-22 (decision D4, `plan_docs/Security-Remediation-Plan.md`); its history stays reachable via the signed `archive/master-2026-10` tag.
 
 ## Building from source
 
