@@ -18,6 +18,7 @@
     <PackageTags>onnxruntime;rocm;migraphx;amd;gpu;linux;native;inference;machine-learning;onnx</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/intel-agency/inference-engine-rocm</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/intel-agency/inference-engine-rocm</PackageProjectUrl>
@@ -30,6 +31,7 @@
     <None Include="../README.md" Pack="true" PackagePath="\" />
     <None Include="../LICENSE" Pack="true" PackagePath="\" />
     <None Include="../THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
+    <None Include="icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <!-- Compatibility placeholder (Microsoft's pattern for native-only packages):
